@@ -1,0 +1,140 @@
+/**
+ * @file main.cpp
+ * @brief BuddhaBox — Example generative ambient audio patch.
+ *
+ * This example demonstrates how to use the BuddhaBox DSP framework to create
+ * a simple generative ambient texture. It creates a filtered pink noise drone
+ * with an LFO-modulated filter sweep and a short delay for depth.
+ *
+ * THE SIGNAL FLOW:
+ * ────────────────
+ *
+ *   PinkNoise → SVFilter (lowpass) → DelayLine (with feedback) → Output
+ *                  ↑                      ↑
+ *               filterLFO              fixed delay time
+ *          (sweeps cutoff slowly)
+ *
+ * This produces a warm, evolving wash of filtered noise — similar to wind
+ * or distant ocean waves. The LFO slowly opens and closes the filter,
+ * creating a "breathing" effect.
+ *
+ * TO MODIFY THIS PATCH:
+ * ────────────────────
+ * This is intentionally simple as a starting template. Try:
+ *   - Adding an oscillator drone underneath the noise
+ *   - Using the TempoClock to periodically change parameters
+ *   - Using the analog input (light sensor) to control filter cutoff
+ *   - Adding a second filter in series for a steeper rolloff
+ *   - Using Karplus-Strong (noise burst → short delay) for string plucks
+ */
+
+#include "audio_engine.h"
+#include "oscillator.h"
+#include "noise.h"
+#include "random.h"
+#include "lfo.h"
+#include "filter.h"
+#include "delay.h"
+#include "clock.h"
+#include "midi_utils.h"
+#include "analog_input.h"
+
+// Heartbeat LED on Black Pill is PC13 (Active Low)
+#define LED_PIN PC13
+
+// ─── DSP Module Instances ───────────────────────────────────────────────────
+
+/** Pink noise source — the primary sound generator for this patch. */
+PinkNoise pinkNoise(12345);
+
+/** State Variable Filter — sculpts the noise into a warm, evolving texture. */
+SVFilter filter1;
+
+/**
+ * Low Frequency Oscillator — modulates the filter cutoff over time.
+ * Creates the "breathing" or "sweeping" quality of the drone.
+ */
+LFO filterLFO;
+
+/**
+ * Delay line — adds spaciousness and depth to the sound.
+ * 4096 samples ≈ 93ms at 44.1kHz. With feedback, creates a subtle
+ * metallic resonance that adds harmonic interest.
+ */
+DelayLine<4096> delay1;
+
+/**
+ * Analog input on PA0 for an external sensor (e.g., photoresistor).
+ * Alpha of 0.05 gives moderate smoothing — responsive but not jittery.
+ * Connect a sensor between PA0 and 3.3V with a pull-down resistor to GND.
+ */
+AnalogInput sensor(PA0, 0.05f);
+
+// ─── Audio Callback ─────────────────────────────────────────────────────────
+
+/**
+ * Fill the DMA buffer with audio samples.
+ */
+void audioCallback(int16_t* buffer, uint16_t length) {
+    for (uint16_t i = 0; i < length; i += 2) {
+
+        // Step 1: Generate source material — pink noise
+        float noise = pinkNoise.process() * 0.3f;
+
+        // Step 2: Modulate the filter cutoff with the LFO (200–2000 Hz)
+        float lfoVal = filterLFO.process();
+        float cutoff = mapf(lfoVal, -1.0f, 1.0f, 200.0f, 2000.0f);
+        filter1.setFrequency(cutoff);
+
+        // Step 3: Filter the noise
+        filter1.process(noise);
+        float filtered = filter1.lowpass();
+
+        // Step 4: Add delay with feedback
+        float delayed = delay1.read(2000.0f);
+        delay1.write(filtered + delayed * 0.4f);
+
+        // Step 5: Mix dry and wet signals
+        float out = filtered * 0.6f + delayed * 0.4f;
+
+        // Step 6: Convert to 16-bit integer
+        int16_t sample = (int16_t)(clampf(out, -1.0f, 1.0f) * 32000.0f);
+
+        // Step 7: Write to both channels (mono output)
+        buffer[i]     = sample;
+        buffer[i + 1] = sample;
+    }
+}
+
+// ─── Arduino Setup ──────────────────────────────────────────────────────────
+
+void setup() {
+    // Configure heartbeat LED
+    pinMode(LED_PIN, OUTPUT);
+    digitalWrite(LED_PIN, HIGH); // Start with LED OFF
+
+    pinMode(PA0, INPUT_ANALOG);
+
+    filterLFO.setWaveform(Waveform::SINE);
+    filterLFO.setFrequency(0.15f);
+
+    filter1.setFrequency(800.0f);
+    filter1.setResonance(0.3f);
+
+    // Start the audio engine
+    AudioEngine::begin();
+}
+
+// ─── Arduino Loop ───────────────────────────────────────────────────────────
+
+void loop() {
+    // Heartbeat LED: Toggles every 500ms
+    static uint32_t lastBlink = 0;
+    if (millis() - lastBlink > 500) {
+        lastBlink = millis();
+        digitalWrite(LED_PIN, !digitalRead(LED_PIN));
+    }
+
+    sensor.update();
+    delay(10);
+}

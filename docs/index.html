@@ -1,0 +1,1772 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BuddhaBox — DSP Framework Documentation</title>
+<style>
+  :root {
+    --bg: #1a1a2e;
+    --bg2: #16213e;
+    --bg3: #0f3460;
+    --accent: #e94560;
+    --accent2: #f5a623;
+    --text: #e0e0e0;
+    --text-dim: #9a9abf;
+    --code-bg: #0d1117;
+    --border: #30305a;
+    --green: #7ec699;
+    --blue: #79b8ff;
+    --purple: #b392f0;
+    --orange: #f5a623;
+    --cyan: #56d4dd;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    padding: 0;
+  }
+
+  header {
+    background: linear-gradient(135deg, var(--bg2), var(--bg3));
+    border-bottom: 2px solid var(--accent);
+    padding: 3rem 2rem;
+    text-align: center;
+  }
+
+  header h1 {
+    font-size: 2.8rem;
+    font-weight: 300;
+    letter-spacing: 0.15em;
+    color: #fff;
+    margin-bottom: 0.5rem;
+  }
+
+  header h1 span { color: var(--accent); font-weight: 600; }
+
+  header p {
+    color: var(--text-dim);
+    font-size: 1.1rem;
+    max-width: 600px;
+    margin: 0 auto;
+  }
+
+  nav {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 0.8rem 2rem;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  nav a {
+    color: var(--text-dim);
+    text-decoration: none;
+    font-size: 0.9rem;
+    padding: 0.3rem 0.6rem;
+    border-radius: 4px;
+    transition: all 0.2s;
+  }
+
+  nav a:hover { color: #fff; background: var(--bg3); }
+
+  .container {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 2rem;
+  }
+
+  section { margin-bottom: 3rem; }
+
+  h2 {
+    font-size: 1.8rem;
+    font-weight: 300;
+    color: var(--accent);
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0.5rem;
+    margin-bottom: 1.5rem;
+    letter-spacing: 0.05em;
+  }
+
+  h3 {
+    font-size: 1.2rem;
+    color: var(--accent2);
+    margin: 1.5rem 0 0.8rem 0;
+  }
+
+  h4 {
+    font-size: 1rem;
+    color: var(--cyan);
+    margin: 1.2rem 0 0.5rem 0;
+  }
+
+  p { margin-bottom: 1rem; }
+
+  ul, ol { margin: 0.5rem 0 1rem 2rem; }
+  li { margin-bottom: 0.3rem; }
+
+  code {
+    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+    background: var(--code-bg);
+    padding: 0.15em 0.4em;
+    border-radius: 3px;
+    font-size: 0.9em;
+    color: var(--green);
+  }
+
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1.2rem;
+    overflow-x: auto;
+    margin: 1rem 0 1.5rem 0;
+    line-height: 1.5;
+  }
+
+  pre code {
+    background: none;
+    padding: 0;
+    font-size: 0.85rem;
+    color: var(--text);
+  }
+
+  .keyword { color: var(--purple); }
+  .type { color: var(--blue); }
+  .string { color: var(--green); }
+  .comment { color: var(--text-dim); font-style: italic; }
+  .number { color: var(--orange); }
+  .func { color: var(--cyan); }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0 1.5rem 0;
+    font-size: 0.95rem;
+  }
+
+  th, td {
+    padding: 0.6rem 1rem;
+    border: 1px solid var(--border);
+    text-align: left;
+  }
+
+  th {
+    background: var(--bg3);
+    color: var(--accent2);
+    font-weight: 600;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  td code { font-size: 0.85em; }
+
+  .file-tree {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1.2rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    line-height: 1.8;
+    color: var(--text-dim);
+  }
+
+  .file-tree .dir { color: var(--blue); font-weight: 600; }
+  .file-tree .file { color: var(--green); }
+  .file-tree .desc { color: var(--text-dim); }
+
+  .signal-flow {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1.5rem;
+    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 0.85rem;
+    line-height: 1.6;
+    color: var(--cyan);
+    text-align: center;
+    margin: 1rem 0;
+    overflow-x: auto;
+    white-space: pre;
+  }
+
+  .wiring-table td:first-child {
+    font-weight: 600;
+    color: var(--accent2);
+    white-space: nowrap;
+  }
+
+  .note {
+    background: rgba(233, 69, 96, 0.1);
+    border-left: 3px solid var(--accent);
+    padding: 0.8rem 1rem;
+    margin: 1rem 0;
+    border-radius: 0 6px 6px 0;
+    font-size: 0.95rem;
+  }
+
+  .note strong { color: var(--accent); }
+
+  .tip {
+    background: rgba(86, 212, 221, 0.1);
+    border-left: 3px solid var(--cyan);
+    padding: 0.8rem 1rem;
+    margin: 1rem 0;
+    border-radius: 0 6px 6px 0;
+    font-size: 0.95rem;
+  }
+
+  .tip strong { color: var(--cyan); }
+
+  .module-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.2rem;
+    margin: 1rem 0;
+  }
+
+  .module-card h4 {
+    margin-top: 0;
+    color: var(--accent2);
+    font-size: 1.15rem;
+  }
+
+  .method-block {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.8rem 1rem;
+    margin: 0.6rem 0;
+  }
+
+  .method-block .method-sig {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.9rem;
+    color: var(--cyan);
+    margin-bottom: 0.4rem;
+  }
+
+  .method-block .method-desc {
+    font-size: 0.9rem;
+    color: var(--text-dim);
+    margin-bottom: 0.3rem;
+  }
+
+  .method-block .method-param {
+    font-size: 0.85rem;
+    color: var(--text);
+    margin-left: 1rem;
+  }
+
+  .method-block .method-param code {
+    color: var(--orange);
+    font-size: 0.85em;
+  }
+
+  .method-block .method-returns {
+    font-size: 0.85rem;
+    color: var(--green);
+    margin-left: 1rem;
+  }
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+    margin: 1.5rem 0;
+  }
+
+  .stat-box {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem;
+    text-align: center;
+  }
+
+  .stat-box .value {
+    font-size: 1.8rem;
+    font-weight: 600;
+    color: var(--accent);
+  }
+
+  .stat-box .label {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 2rem;
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 0.85rem;
+  }
+
+  .diagram-box {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1.5rem;
+    margin: 1rem 0;
+    overflow-x: auto;
+    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 0.85rem;
+    line-height: 1.4;
+    color: var(--cyan);
+    white-space: pre;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1><span>Buddha</span>Box</h1>
+  <p>A modular DSP framework for generative ambient audio on STM32</p>
+</header>
+
+<nav>
+  <a href="#architecture">Architecture</a>
+  <a href="#files">Files</a>
+  <a href="#modules">API Reference</a>
+  <a href="#composition">Composing Modules</a>
+  <a href="#examples">Examples</a>
+  <a href="#quickstart">Quick Start</a>
+  <a href="#hardware">Hardware</a>
+</nav>
+
+<div class="container">
+
+<!-- ======================================================================= -->
+<section id="architecture">
+<h2>Architecture</h2>
+
+<p>
+  BuddhaBox is a <strong>sample-by-sample modular DSP framework</strong>.
+  Every sound-producing or sound-shaping module exposes a
+  <code>float process()</code> method that returns one audio sample at a time.
+  You compose patches by wiring outputs into inputs &mdash; just like patching
+  a modular synthesizer with cables.
+</p>
+
+<div class="stats">
+  <div class="stat-box">
+    <div class="value">44.1 kHz</div>
+    <div class="label">Sample Rate</div>
+  </div>
+  <div class="stat-box">
+    <div class="value">16-bit</div>
+    <div class="label">Stereo Output</div>
+  </div>
+  <div class="stat-box">
+    <div class="value">84 MHz</div>
+    <div class="label">CPU Clock</div>
+  </div>
+  <div class="stat-box">
+    <div class="value">64 KB</div>
+    <div class="label">RAM</div>
+  </div>
+</div>
+
+<h3>Signal Flow</h3>
+<p>
+  The audio engine uses <strong>I2S DMA double-buffering</strong>.
+  The DMA hardware continuously streams samples to the DAC. When it finishes
+  one half of the buffer, it fires an interrupt and your
+  <code>audioCallback()</code> fills that half with fresh samples while the
+  other half plays.
+</p>
+
+<div class="signal-flow">Your DSP Code &#x2192; audioCallback() &#x2192; DMA Buffer &#x2192; I2S Peripheral &#x2192; UDA1334A DAC &#x2192; Audio Out</div>
+
+<h3>Design Principles</h3>
+
+<table>
+  <tr>
+    <th>Principle</th>
+    <th>What It Means</th>
+  </tr>
+  <tr>
+    <td><strong>Sample-by-sample</strong></td>
+    <td>Every module processes one sample per call. No block sizes to worry about when patching modules together.</td>
+  </tr>
+  <tr>
+    <td><strong>Float internal, int16 output</strong></td>
+    <td>All DSP math uses <code>float</code> (-1.0 to +1.0). Conversion to 16-bit integers only happens at the final output stage.</td>
+  </tr>
+  <tr>
+    <td><strong>Header-only modules</strong></td>
+    <td>DSP modules are defined entirely in <code>.h</code> files so the compiler can inline critical functions. Only the audio engine has a <code>.cpp</code>.</td>
+  </tr>
+  <tr>
+    <td><strong>No dynamic allocation</strong></td>
+    <td>All memory is allocated at compile time via global objects and template parameters. No <code>new</code> or <code>malloc</code> in the audio path.</td>
+  </tr>
+  <tr>
+    <td><strong>Composable</strong></td>
+    <td>Any module's output can feed into any other module's input. An LFO can modulate a filter, which filters an oscillator, which is shaped by an envelope.</td>
+  </tr>
+</table>
+
+</section>
+
+<!-- ======================================================================= -->
+<section id="files">
+<h2>Project Files</h2>
+
+<div class="file-tree">
+<span class="dir">buddhabox/</span><br>
+&#x251C;&#x2500;&#x2500; <span class="file">platformio.ini</span> <span class="desc">&#x2500;&#x2500; Build config (board, platform, flags)</span><br>
+&#x251C;&#x2500;&#x2500; <span class="file">CLAUDE.md</span> <span class="desc">&#x2500;&#x2500; AI assistant project guidelines</span><br>
+&#x251C;&#x2500;&#x2500; <span class="dir">docs/</span><br>
+&#x2502;&nbsp;&nbsp; &#x2514;&#x2500;&#x2500; <span class="file">index.html</span> <span class="desc">&#x2500;&#x2500; This documentation</span><br>
+&#x2514;&#x2500;&#x2500; <span class="dir">src/</span><br>
+&nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">dsp_common.h</span> <span class="desc">&#x2500;&#x2500; Constants and utilities (clamp, lerp, map, softclip)</span><br>
+&nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">oscillator.h</span> <span class="desc">&#x2500;&#x2500; Audio oscillator: sine, saw, square, triangle</span><br>
+&nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">noise.h</span> <span class="desc">&#x2500;&#x2500; WhiteNoise and PinkNoise generators</span><br>
+&nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">random.h</span> <span class="desc">&#x2500;&#x2500; LFSR pseudo-random number generator</span><br>
+&nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">lfo.h</span> <span class="desc">&#x2500;&#x2500; Low Frequency Oscillator for modulation</span><br>
+&nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">envelope.h</span> <span class="desc">&#x2500;&#x2500; Attack-Release envelope generator</span><br>
+&nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">filter.h</span> <span class="desc">&#x2500;&#x2500; State Variable Filter (LP / HP / BP)</span><br>
+&nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">delay.h</span> <span class="desc">&#x2500;&#x2500; Delay line (int16 storage, interpolated reads)</span><br>
+&nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">karplus.h</span> <span class="desc">&#x2500;&#x2500; Karplus-Strong plucked string synthesis</span><br>
+&nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">clock.h</span> <span class="desc">&#x2500;&#x2500; Sample-accurate tempo clock</span><br>
+&nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">midi_utils.h</span> <span class="desc">&#x2500;&#x2500; MIDI note &#x2192; frequency conversion</span><br>
+&nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">analog_input.h</span> <span class="desc">&#x2500;&#x2500; Smoothed ADC reader for sensors</span><br>
+&nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">audio_engine.h</span> <span class="desc">&#x2500;&#x2500; I2S DMA engine (interface)</span><br>
+&nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">audio_engine.cpp</span> <span class="desc">&#x2500;&#x2500; I2S DMA engine (implementation)</span><br>
+&nbsp;&nbsp;&nbsp; &#x2514;&#x2500;&#x2500; <span class="file">main.cpp</span> <span class="desc">&#x2500;&#x2500; Example patch (filtered pink noise drone)</span>
+</div>
+
+</section>
+
+<!-- ======================================================================= -->
+<section id="modules">
+<h2>API Reference</h2>
+
+<!-- ── dsp_common.h ──────────────────────────────────────────────────────── -->
+<h3>Utility Functions <code>dsp_common.h</code></h3>
+
+<p>Shared constants and utility functions included by every module.</p>
+
+<h4>Constants</h4>
+<table>
+  <tr><th>Name</th><th>Type</th><th>Value</th><th>Description</th></tr>
+  <tr><td><code>SAMPLE_RATE</code></td><td><code>uint32_t</code></td><td>44100</td><td>Audio samples per second</td></tr>
+  <tr><td><code>AUDIO_BLOCK_SIZE</code></td><td><code>uint16_t</code></td><td>256</td><td>Stereo frames per DMA half-buffer</td></tr>
+  <tr><td><code>PI_F</code></td><td><code>float</code></td><td>3.14159...</td><td>Pi as a 32-bit float</td></tr>
+  <tr><td><code>TWO_PI_F</code></td><td><code>float</code></td><td>6.28318...</td><td>2*Pi as a 32-bit float</td></tr>
+</table>
+
+<h4>Functions</h4>
+
+<div class="method-block">
+  <div class="method-sig">float clampf(float x, float lo, float hi)</div>
+  <div class="method-desc">Constrain a value to a range. Essential for preventing clipping.</div>
+  <div class="method-param"><code>x</code> &mdash; value to clamp</div>
+  <div class="method-param"><code>lo</code> &mdash; minimum allowed value</div>
+  <div class="method-param"><code>hi</code> &mdash; maximum allowed value</div>
+  <div class="method-returns">Returns: x constrained to [lo, hi]</div>
+</div>
+
+<div class="method-block">
+  <div class="method-sig">float lerpf(float a, float b, float t)</div>
+  <div class="method-desc">Linear interpolation between two values.</div>
+  <div class="method-param"><code>a</code> &mdash; start value (returned when t=0)</div>
+  <div class="method-param"><code>b</code> &mdash; end value (returned when t=1)</div>
+  <div class="method-param"><code>t</code> &mdash; blend factor, typically 0.0 to 1.0</div>
+  <div class="method-returns">Returns: a + (b - a) * t</div>
+</div>
+
+<div class="method-block">
+  <div class="method-sig">float mapf(float x, float inLo, float inHi, float outLo, float outHi)</div>
+  <div class="method-desc">Map a value from one range to another (like Arduino's map() but for floats).</div>
+  <div class="method-param"><code>x</code> &mdash; input value</div>
+  <div class="method-param"><code>inLo, inHi</code> &mdash; input range bounds</div>
+  <div class="method-param"><code>outLo, outHi</code> &mdash; output range bounds</div>
+  <div class="method-returns">Returns: x rescaled from [inLo, inHi] to [outLo, outHi]</div>
+</div>
+
+<div class="method-block">
+  <div class="method-sig">float softclip(float x, float drive = 1.0f)</div>
+  <div class="method-desc">Soft clipping with warm saturation. Uses tanh approximation: x / (1 + |x|). Unlike hard clipping (clampf), this gently rounds off peaks for tube-amp-like warmth.</div>
+  <div class="method-param"><code>x</code> &mdash; input sample (any range, will be compressed toward &plusmn;1.0)</div>
+  <div class="method-param"><code>drive</code> &mdash; saturation amount. 1.0 = clean, 2.0 = gentle warmth, 5.0 = noticeable saturation, 10.0+ = heavy distortion. Default: 1.0</div>
+  <div class="method-returns">Returns: soft-clipped sample in approximately (-1.0, +1.0)</div>
+</div>
+
+<pre><code><span class="comment">// Gentle warmth on a mix</span>
+<span class="type">float</span> out = <span class="func">softclip</span>(osc.<span class="func">process</span>() + noise.<span class="func">process</span>(), <span class="number">2.0f</span>);
+
+<span class="comment">// Heavy distortion</span>
+<span class="type">float</span> distorted = <span class="func">softclip</span>(osc.<span class="func">process</span>(), <span class="number">8.0f</span>);
+
+<span class="comment">// Map sensor to filter cutoff</span>
+<span class="type">float</span> cutoff = <span class="func">mapf</span>(sensor.<span class="func">read</span>(), <span class="number">0.0f</span>, <span class="number">1.0f</span>, <span class="number">200.0f</span>, <span class="number">5000.0f</span>);</code></pre>
+
+<!-- ── Oscillator ────────────────────────────────────────────────────────── -->
+<h3>Oscillator <code>oscillator.h</code></h3>
+
+<div class="module-card">
+  <h4>Class: Oscillator</h4>
+  <p>
+    Audio-rate waveform generator using the phase accumulator pattern.
+    A phase variable ramps 0&#x2192;1 at a rate determined by frequency, and the
+    current phase is transformed into the selected waveform shape.
+    Sine uses a fast parabolic approximation (~4x faster than <code>sinf()</code>).
+  </p>
+
+  <h4>Waveform Enum</h4>
+  <table>
+    <tr><th>Value</th><th>Sound Character</th><th>Harmonics</th></tr>
+    <tr><td><code>Waveform::SINE</code></td><td>Pure, mellow</td><td>None (fundamental only)</td></tr>
+    <tr><td><code>Waveform::SAW</code></td><td>Bright, buzzy</td><td>All harmonics (1/n)</td></tr>
+    <tr><td><code>Waveform::SQUARE</code></td><td>Hollow, clarinet-like</td><td>Odd harmonics (1/n)</td></tr>
+    <tr><td><code>Waveform::TRIANGLE</code></td><td>Soft, flute-like</td><td>Odd harmonics (1/n&sup2;)</td></tr>
+  </table>
+
+  <h4>Instantiation</h4>
+  <pre><code><span class="type">Oscillator</span> osc;  <span class="comment">// Default: 440 Hz sine, amplitude 1.0</span></code></pre>
+
+  <h4>Methods</h4>
+
+  <div class="method-block">
+    <div class="method-sig">void setFrequency(float hz)</div>
+    <div class="method-desc">Set the oscillator pitch.</div>
+    <div class="method-param"><code>hz</code> &mdash; <code>float</code> &mdash; frequency in Hertz. Typical range: 20&ndash;20000. For sub-bass drones: 30&ndash;80.</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">void setWaveform(Waveform w)</div>
+    <div class="method-desc">Set the waveform shape.</div>
+    <div class="method-param"><code>w</code> &mdash; <code>Waveform</code> &mdash; one of SINE, SAW, SQUARE, TRIANGLE</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">void setAmplitude(float a)</div>
+    <div class="method-desc">Set the output amplitude (volume scaling).</div>
+    <div class="method-param"><code>a</code> &mdash; <code>float</code> &mdash; 1.0 = full scale, 0.5 = half volume, 0.0 = silence. When mixing multiple oscillators, keep each around 0.2&ndash;0.4 to avoid clipping.</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">float process()</div>
+    <div class="method-desc">Generate the next audio sample. Call once per sample.</div>
+    <div class="method-returns">Returns: <code>float</code> in [-amplitude, +amplitude]</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">float getPhase() const</div>
+    <div class="method-desc">Get the current phase position. Useful for syncing oscillators.</div>
+    <div class="method-returns">Returns: <code>float</code> in [0.0, 1.0)</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">void setPhase(float p)</div>
+    <div class="method-desc">Manually set the phase.</div>
+    <div class="method-param"><code>p</code> &mdash; <code>float</code> &mdash; phase position, 0.0&ndash;1.0</div>
+  </div>
+</div>
+
+<pre><code><span class="type">Oscillator</span> osc;
+osc.<span class="func">setWaveform</span>(Waveform::SAW);
+osc.<span class="func">setFrequency</span>(<span class="number">440.0f</span>);    <span class="comment">// Concert A</span>
+osc.<span class="func">setAmplitude</span>(<span class="number">0.5f</span>);      <span class="comment">// Half volume</span>
+
+<span class="comment">// In audio callback:</span>
+<span class="type">float</span> sample = osc.<span class="func">process</span>();  <span class="comment">// Returns -0.5 to +0.5</span></code></pre>
+
+<!-- ── WhiteNoise / PinkNoise ────────────────────────────────────────────── -->
+<h3>WhiteNoise / PinkNoise <code>noise.h</code></h3>
+
+<div class="module-card">
+  <h4>Class: WhiteNoise</h4>
+  <p>
+    White noise generator using xorshift32 PRNG. Equal energy at all frequencies &mdash; sounds hissy like TV static.
+  </p>
+
+  <h4>Instantiation</h4>
+  <pre><code><span class="type">WhiteNoise</span> noise;           <span class="comment">// Default seed: 12345</span>
+<span class="type">WhiteNoise</span> noise(<span class="number">98765</span>);    <span class="comment">// Custom seed</span></code></pre>
+
+  <h4>Constructor</h4>
+  <div class="method-block">
+    <div class="method-sig">WhiteNoise(uint32_t seed = 12345)</div>
+    <div class="method-param"><code>seed</code> &mdash; <code>uint32_t</code> &mdash; initial PRNG state. Different seeds produce different sequences. 0 is forced to 1.</div>
+  </div>
+
+  <h4>Methods</h4>
+  <div class="method-block">
+    <div class="method-sig">float process()</div>
+    <div class="method-desc">Generate the next white noise sample.</div>
+    <div class="method-returns">Returns: <code>float</code> uniformly distributed in [-1.0, +1.0]</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">void seed(uint32_t s)</div>
+    <div class="method-desc">Reset with a new seed.</div>
+    <div class="method-param"><code>s</code> &mdash; <code>uint32_t</code> &mdash; new seed value (0 forced to 1)</div>
+  </div>
+</div>
+
+<div class="module-card">
+  <h4>Class: PinkNoise</h4>
+  <p>
+    Pink noise using the Voss-McCartney algorithm (12 octave-spaced rows) for -3 dB/octave rolloff. Sounds like rain, wind, or ocean. The go-to for ambient texture.
+  </p>
+
+  <h4>Instantiation</h4>
+  <pre><code><span class="type">PinkNoise</span> pink;            <span class="comment">// Default seed: 54321</span>
+<span class="type">PinkNoise</span> pink(<span class="number">11111</span>);     <span class="comment">// Custom seed</span></code></pre>
+
+  <h4>Constructor</h4>
+  <div class="method-block">
+    <div class="method-sig">PinkNoise(uint32_t seed = 54321)</div>
+    <div class="method-param"><code>seed</code> &mdash; <code>uint32_t</code> &mdash; seed for internal white noise generator</div>
+  </div>
+
+  <h4>Methods</h4>
+  <div class="method-block">
+    <div class="method-sig">float process()</div>
+    <div class="method-desc">Generate the next pink noise sample.</div>
+    <div class="method-returns">Returns: <code>float</code> approximately in [-1.0, +1.0] (clamped)</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">void seed(uint32_t s)</div>
+    <div class="method-desc">Re-seed the internal random generator.</div>
+    <div class="method-param"><code>s</code> &mdash; <code>uint32_t</code> &mdash; new seed value</div>
+  </div>
+</div>
+
+<pre><code><span class="type">PinkNoise</span> noise(<span class="number">12345</span>);
+<span class="type">SVFilter</span> filter;
+filter.<span class="func">setFrequency</span>(<span class="number">400.0f</span>);
+filter.<span class="func">setResonance</span>(<span class="number">0.6f</span>);
+
+<span class="comment">// In audio callback:</span>
+filter.<span class="func">process</span>(noise.<span class="func">process</span>() * <span class="number">0.3f</span>);
+<span class="type">float</span> out = filter.<span class="func">lowpass</span>();  <span class="comment">// Warm, filtered noise</span></code></pre>
+
+<!-- ── LFSR ───────────────────────────────────────────────────────────────── -->
+<h3>LFSR <code>random.h</code></h3>
+
+<div class="module-card">
+  <h4>Class: LFSR</h4>
+  <p>
+    32-bit Linear Feedback Shift Register for non-audio randomness: picking notes from scales, probability gates, random parameter values. Maximal-length sequence (2<sup>32</sup>&minus;1 values before repeating).
+  </p>
+
+  <h4>Instantiation</h4>
+  <pre><code><span class="type">LFSR</span> rng;              <span class="comment">// Default seed: 0xACE1</span>
+<span class="type">LFSR</span> rng(<span class="number">42</span>);           <span class="comment">// Custom seed</span></code></pre>
+
+  <h4>Constructor</h4>
+  <div class="method-block">
+    <div class="method-sig">LFSR(uint32_t seed = 0xACE1u)</div>
+    <div class="method-param"><code>seed</code> &mdash; <code>uint32_t</code> &mdash; initial state. 0 forced to 1.</div>
+  </div>
+
+  <h4>Methods</h4>
+
+  <div class="method-block">
+    <div class="method-sig">uint32_t next()</div>
+    <div class="method-desc">Advance one step and return the raw 32-bit state.</div>
+    <div class="method-returns">Returns: <code>uint32_t</code> &mdash; raw pseudo-random value</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">float nextFloat()</div>
+    <div class="method-desc">Random float in [0.0, 1.0]. Good for probability checks.</div>
+    <div class="method-returns">Returns: <code>float</code> &mdash; uniformly distributed 0.0&ndash;1.0</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">float nextBipolar()</div>
+    <div class="method-desc">Random float in [-1.0, +1.0]. Good for random modulation offsets.</div>
+    <div class="method-returns">Returns: <code>float</code> &mdash; uniformly distributed -1.0 to +1.0</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">uint32_t nextRange(uint32_t min, uint32_t max)</div>
+    <div class="method-desc">Random integer in [min, max] inclusive.</div>
+    <div class="method-param"><code>min</code> &mdash; <code>uint32_t</code> &mdash; minimum value (inclusive)</div>
+    <div class="method-param"><code>max</code> &mdash; <code>uint32_t</code> &mdash; maximum value (inclusive)</div>
+    <div class="method-returns">Returns: <code>uint32_t</code> &mdash; random integer in [min, max]</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">void seed(uint32_t s)</div>
+    <div class="method-desc">Reset with a new seed.</div>
+    <div class="method-param"><code>s</code> &mdash; <code>uint32_t</code> &mdash; new seed value (0 forced to 1)</div>
+  </div>
+</div>
+
+<pre><code><span class="type">LFSR</span> rng(<span class="number">42</span>);
+<span class="type">uint8_t</span> pentatonic[] = {<span class="number">60</span>, <span class="number">62</span>, <span class="number">64</span>, <span class="number">67</span>, <span class="number">69</span>};  <span class="comment">// C pentatonic</span>
+<span class="type">uint8_t</span> note = pentatonic[rng.<span class="func">nextRange</span>(<span class="number">0</span>, <span class="number">4</span>)];
+
+<span class="comment">// 30% probability gate</span>
+<span class="keyword">if</span> (rng.<span class="func">nextFloat</span>() &lt; <span class="number">0.3f</span>) { <span class="func">doSomething</span>(); }</code></pre>
+
+<!-- ── LFO ────────────────────────────────────────────────────────────────── -->
+<h3>LFO <code>lfo.h</code></h3>
+
+<div class="module-card">
+  <h4>Class: LFO</h4>
+  <p>
+    Low Frequency Oscillator for modulating parameters over time (filter cutoff, amplitude, pitch, delay time). Same waveform math as Oscillator but intended for sub-audio rates (0.01&ndash;20 Hz). Always outputs -1.0 to +1.0 (no amplitude parameter) &mdash; scale the output to the target range using <code>mapf()</code>.
+  </p>
+
+  <h4>Instantiation</h4>
+  <pre><code><span class="type">LFO</span> lfo;  <span class="comment">// Default: 1 Hz sine</span></code></pre>
+
+  <h4>Methods</h4>
+
+  <div class="method-block">
+    <div class="method-sig">void setFrequency(float hz)</div>
+    <div class="method-desc">Set the LFO rate.</div>
+    <div class="method-param"><code>hz</code> &mdash; <code>float</code> &mdash; frequency in Hz. 0.05 = 20s cycle, 0.15 = ~7s, 1.0 = 1s, 5.0 = vibrato speed.</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">void setWaveform(Waveform w)</div>
+    <div class="method-desc">Set waveform shape. SINE = smooth sweep, TRIANGLE = linear, SAW = ramp up + snap, SQUARE = toggle.</div>
+    <div class="method-param"><code>w</code> &mdash; <code>Waveform</code> &mdash; one of SINE, SAW, SQUARE, TRIANGLE</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">float process()</div>
+    <div class="method-desc">Generate the next LFO sample. Call once per audio sample.</div>
+    <div class="method-returns">Returns: <code>float</code> in [-1.0, +1.0]</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">void reset()</div>
+    <div class="method-desc">Reset phase to zero. Useful for syncing LFO to a tempo clock.</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">float getPhase() const</div>
+    <div class="method-returns">Returns: <code>float</code> &mdash; current phase 0.0&ndash;1.0</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">void setPhase(float p)</div>
+    <div class="method-param"><code>p</code> &mdash; <code>float</code> &mdash; phase position 0.0&ndash;1.0</div>
+  </div>
+</div>
+
+<pre><code><span class="type">LFO</span> filterSweep;
+filterSweep.<span class="func">setWaveform</span>(Waveform::TRIANGLE);
+filterSweep.<span class="func">setFrequency</span>(<span class="number">0.1f</span>);  <span class="comment">// One cycle every 10 seconds</span>
+
+<span class="comment">// In audio callback:</span>
+<span class="type">float</span> mod = filterSweep.<span class="func">process</span>();
+<span class="type">float</span> cutoff = <span class="func">mapf</span>(mod, -<span class="number">1.0f</span>, <span class="number">1.0f</span>, <span class="number">200.0f</span>, <span class="number">3000.0f</span>);
+filter.<span class="func">setFrequency</span>(cutoff);</code></pre>
+
+<!-- ── Envelope ──────────────────────────────────────────────────────────── -->
+<h3>Envelope <code>envelope.h</code></h3>
+
+<div class="module-card">
+  <h4>Class: Envelope</h4>
+  <p>
+    Attack-Release envelope with exponential curves (sounds more natural than linear). States: IDLE &#x2192; ATTACK &#x2192; SUSTAIN &#x2192; RELEASE &#x2192; IDLE. Use <code>gate(true/false)</code> for sustained notes or <code>trigger()</code> for one-shot percussive hits that auto-release after attack.
+  </p>
+
+  <h4>EnvState Enum</h4>
+  <table>
+    <tr><th>State</th><th>Description</th></tr>
+    <tr><td><code>EnvState::IDLE</code></td><td>Output = 0.0, waiting for gate</td></tr>
+    <tr><td><code>EnvState::ATTACK</code></td><td>Ramping up from 0.0 toward 1.0</td></tr>
+    <tr><td><code>EnvState::SUSTAIN</code></td><td>Holding at 1.0 while gate is open</td></tr>
+    <tr><td><code>EnvState::RELEASE</code></td><td>Ramping down toward 0.0</td></tr>
+  </table>
+
+  <h4>Instantiation</h4>
+  <pre><code><span class="type">Envelope</span> env;  <span class="comment">// Default: 10ms attack, 500ms release</span></code></pre>
+
+  <h4>Methods</h4>
+
+  <div class="method-block">
+    <div class="method-sig">void setAttack(float seconds)</div>
+    <div class="method-desc">Set the attack time (ramp from 0 to 1).</div>
+    <div class="method-param"><code>seconds</code> &mdash; <code>float</code> &mdash; 0.001 = 1ms (percussive), 0.01 = 10ms (snappy), 0.5 = 500ms (gradual), 3.0 = 3s (slow swell). Minimum clamped to ~1 sample.</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">void setRelease(float seconds)</div>
+    <div class="method-desc">Set the release time (fade to silence after gate off).</div>
+    <div class="method-param"><code>seconds</code> &mdash; <code>float</code> &mdash; 0.05 = 50ms (clicky), 0.15 = 150ms (percussive), 1.0 = 1s (medium), 5.0 = 5s (ambient tail).</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">void gate(bool on)</div>
+    <div class="method-desc">Open/close the gate. <code>true</code> = start attack, <code>false</code> = start release. Safe to call while already in attack/sustain.</div>
+    <div class="method-param"><code>on</code> &mdash; <code>bool</code> &mdash; true = note on, false = note off</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">void trigger()</div>
+    <div class="method-desc">One-shot: reset to zero, start fresh attack, auto-release at peak (no sustain). Ideal for percussive hits.</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">float process()</div>
+    <div class="method-desc">Generate the next envelope sample. Multiply with your audio signal.</div>
+    <div class="method-returns">Returns: <code>float</code> &mdash; 0.0 (silence) to 1.0 (full volume)</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">bool isActive() const</div>
+    <div class="method-returns">Returns: <code>bool</code> &mdash; true if not IDLE</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">EnvState getState() const</div>
+    <div class="method-returns">Returns: <code>EnvState</code> &mdash; current state</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">float getValue() const</div>
+    <div class="method-returns">Returns: <code>float</code> &mdash; current value 0.0&ndash;1.0 without advancing</div>
+  </div>
+</div>
+
+<pre><code><span class="type">Envelope</span> env;
+env.<span class="func">setAttack</span>(<span class="number">0.002f</span>);    <span class="comment">// 2ms — sharp pluck</span>
+env.<span class="func">setRelease</span>(<span class="number">0.3f</span>);     <span class="comment">// 300ms — bell-like decay</span>
+
+<span class="comment">// Percussive trigger (auto-releases):</span>
+env.<span class="func">trigger</span>();
+<span class="type">float</span> sample = osc.<span class="func">process</span>() * env.<span class="func">process</span>();
+
+<span class="comment">// Sustained note:</span>
+env.<span class="func">gate</span>(<span class="keyword">true</span>);   <span class="comment">// Note on</span>
+<span class="comment">// ... hold ...</span>
+env.<span class="func">gate</span>(<span class="keyword">false</span>);  <span class="comment">// Note off — starts release</span></code></pre>
+
+<!-- ── SVFilter ──────────────────────────────────────────────────────────── -->
+<h3>SVFilter <code>filter.h</code></h3>
+
+<div class="module-card">
+  <h4>Class: SVFilter</h4>
+  <p>
+    Chamberlin State Variable Filter providing simultaneous lowpass, highpass, and bandpass outputs from a single <code>process()</code> call. Resonance creates a peak at the cutoff frequency; at maximum, the filter self-oscillates. Cutoff clamped to sampleRate/4 for stability.
+  </p>
+
+  <h4>Instantiation</h4>
+  <pre><code><span class="type">SVFilter</span> filter;  <span class="comment">// Default: 1000 Hz cutoff, no resonance</span></code></pre>
+
+  <h4>Methods</h4>
+
+  <div class="method-block">
+    <div class="method-sig">void setFrequency(float hz)</div>
+    <div class="method-desc">Set the cutoff frequency.</div>
+    <div class="method-param"><code>hz</code> &mdash; <code>float</code> &mdash; cutoff in Hertz. 20 = very dark, 1000 = warm, 5000 = bright. Clamped to [20, SAMPLE_RATE/4] for stability.</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">void setResonance(float q)</div>
+    <div class="method-desc">Set filter resonance.</div>
+    <div class="method-param"><code>q</code> &mdash; <code>float</code> &mdash; 0.0 = no resonance, 0.5 = classic synth, 0.9 = strong ringing, 1.0 = self-oscillation. Clamped to [0.0, 1.0].</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">void process(float input)</div>
+    <div class="method-desc">Process one input sample. After calling, read outputs via lowpass()/highpass()/bandpass().</div>
+    <div class="method-param"><code>input</code> &mdash; <code>float</code> &mdash; input sample, typically -1.0 to +1.0</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">float lowpass() const</div>
+    <div class="method-returns">Returns: <code>float</code> &mdash; lowpass output (frequencies below cutoff)</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">float highpass() const</div>
+    <div class="method-returns">Returns: <code>float</code> &mdash; highpass output (frequencies above cutoff)</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">float bandpass() const</div>
+    <div class="method-returns">Returns: <code>float</code> &mdash; bandpass output (frequencies near cutoff)</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">void clear()</div>
+    <div class="method-desc">Reset all internal state to zero. Use when changing patches.</div>
+  </div>
+</div>
+
+<pre><code><span class="type">SVFilter</span> filter;
+filter.<span class="func">setFrequency</span>(<span class="number">800.0f</span>);
+filter.<span class="func">setResonance</span>(<span class="number">0.4f</span>);
+
+<span class="comment">// In audio callback:</span>
+filter.<span class="func">process</span>(inputSample);
+<span class="type">float</span> warm = filter.<span class="func">lowpass</span>();
+<span class="type">float</span> bright = filter.<span class="func">highpass</span>();
+<span class="type">float</span> focused = filter.<span class="func">bandpass</span>();
+<span class="type">float</span> notch = filter.<span class="func">lowpass</span>() + filter.<span class="func">highpass</span>();  <span class="comment">// Notch filter!</span></code></pre>
+
+<!-- ── DelayLine ─────────────────────────────────────────────────────────── -->
+<h3>DelayLine&lt;N&gt; <code>delay.h</code></h3>
+
+<div class="module-card">
+  <h4>Class: DelayLine&lt;MAX_SAMPLES&gt;</h4>
+  <p>
+    Circular buffer delay with int16 storage (2 bytes/sample) and a float API. Linear interpolation for smooth modulated reads. Usable for echo, chorus, flanger, comb filtering, and Karplus-Strong.
+  </p>
+
+  <table>
+    <tr><th>Template Size</th><th>RAM</th><th>Max Delay</th></tr>
+    <tr><td><code>1024</code></td><td>2 KB</td><td>~23 ms</td></tr>
+    <tr><td><code>4096</code></td><td>8 KB</td><td>~93 ms</td></tr>
+    <tr><td><code>8192</code></td><td>16 KB</td><td>~186 ms</td></tr>
+    <tr><td><code>16384</code></td><td>32 KB</td><td>~371 ms</td></tr>
+  </table>
+
+  <h4>Instantiation</h4>
+  <pre><code><span class="type">DelayLine</span>&lt;<span class="number">4096</span>&gt; delay;    <span class="comment">// 4096 samples, 8 KB, ~93ms</span>
+<span class="type">DelayLine</span>&lt;<span class="number">1024</span>&gt; string;   <span class="comment">// Smaller for Karplus-Strong</span>
+<span class="type">DelayLine</span>&lt;&gt; delay2;       <span class="comment">// Default: 4096</span></code></pre>
+
+  <h4>Template Parameter</h4>
+  <div class="method-block">
+    <div class="method-sig">template &lt;uint16_t MAX_SAMPLES = 4096&gt;</div>
+    <div class="method-param"><code>MAX_SAMPLES</code> &mdash; <code>uint16_t</code> &mdash; maximum delay length in samples. Buffer = MAX_SAMPLES * 2 bytes.</div>
+  </div>
+
+  <h4>Methods</h4>
+
+  <div class="method-block">
+    <div class="method-sig">void write(float sample)</div>
+    <div class="method-desc">Write one sample into the buffer. Float is converted to int16 internally.</div>
+    <div class="method-param"><code>sample</code> &mdash; <code>float</code> &mdash; sample to store, expected range [-1.0, +1.0]. Values outside are clamped.</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">float read(float delaySamples) const</div>
+    <div class="method-desc">Read a sample at a fractional delay time. Linear interpolation between adjacent samples.</div>
+    <div class="method-param"><code>delaySamples</code> &mdash; <code>float</code> &mdash; how far back to read. 0.0 = most recent, MAX_SAMPLES-1 = oldest. Fractional values are interpolated.</div>
+    <div class="method-returns">Returns: <code>float</code> in [-1.0, +1.0]</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">float tap(float delaySamples) const</div>
+    <div class="method-desc">Alias for read(). Makes multi-tap code more readable.</div>
+    <div class="method-param"><code>delaySamples</code> &mdash; <code>float</code> &mdash; delay time in samples</div>
+    <div class="method-returns">Returns: <code>float</code> in [-1.0, +1.0]</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">void clear()</div>
+    <div class="method-desc">Zero the entire buffer. Prevents stale audio from bleeding through.</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">uint16_t maxDelay() const</div>
+    <div class="method-returns">Returns: <code>uint16_t</code> &mdash; the template parameter MAX_SAMPLES</div>
+  </div>
+</div>
+
+<pre><code><span class="type">DelayLine</span>&lt;<span class="number">8192</span>&gt; delay;
+
+<span class="comment">// Simple echo with feedback:</span>
+<span class="type">float</span> delayed = delay.<span class="func">read</span>(<span class="number">6000.0f</span>);           <span class="comment">// ~136ms back</span>
+<span class="type">float</span> output = input * <span class="number">0.7f</span> + delayed * <span class="number">0.3f</span>;  <span class="comment">// Mix dry + wet</span>
+delay.<span class="func">write</span>(input + delayed * <span class="number">0.5f</span>);            <span class="comment">// 50% feedback</span>
+
+<span class="comment">// Multi-tap delay:</span>
+<span class="type">float</span> tap1 = delay.<span class="func">tap</span>(<span class="number">1000.0f</span>) * <span class="number">0.6f</span>;
+<span class="type">float</span> tap2 = delay.<span class="func">tap</span>(<span class="number">2000.0f</span>) * <span class="number">0.4f</span>;
+<span class="type">float</span> tap3 = delay.<span class="func">tap</span>(<span class="number">3500.0f</span>) * <span class="number">0.2f</span>;</code></pre>
+
+<!-- ── KarplusStrong ─────────────────────────────────────────────────────── -->
+<h3>KarplusStrong&lt;N&gt; <code>karplus.h</code></h3>
+
+<div class="module-card">
+  <h4>Class: KarplusStrong&lt;MAX_SAMPLES&gt;</h4>
+  <p>
+    Karplus-Strong plucked string synthesis. A burst of white noise excites a delay line with lowpass-filtered feedback, producing realistic plucked string sounds. The delay length sets the pitch, and the filter causes high harmonics to decay faster than low ones &mdash; just like a real string.
+  </p>
+
+  <h4>Instantiation</h4>
+  <pre><code><span class="type">KarplusStrong</span>&lt;&gt; string;              <span class="comment">// Default: 1024 samples, seed 12345</span>
+<span class="type">KarplusStrong</span>&lt;<span class="number">2048</span>&gt; bass(<span class="number">99</span>);       <span class="comment">// Larger buffer for bass, custom seed</span>
+<span class="type">KarplusStrong</span>&lt;<span class="number">1024</span>&gt; strings[<span class="number">4</span>];      <span class="comment">// Array for polyphony</span></code></pre>
+
+  <h4>Template Parameter</h4>
+  <div class="method-block">
+    <div class="method-sig">template &lt;uint16_t MAX_SAMPLES = 1024&gt;</div>
+    <div class="method-param"><code>MAX_SAMPLES</code> &mdash; <code>uint16_t</code> &mdash; max delay size. Determines lowest pitch: SAMPLE_RATE / MAX_SAMPLES. Default 1024 &#x2192; ~43 Hz minimum.</div>
+  </div>
+
+  <h4>Constructor</h4>
+  <div class="method-block">
+    <div class="method-sig">KarplusStrong(uint32_t seed = 12345)</div>
+    <div class="method-param"><code>seed</code> &mdash; <code>uint32_t</code> &mdash; seed for internal noise generator. Use different seeds per string to avoid identical attacks.</div>
+  </div>
+
+  <h4>Methods</h4>
+
+  <div class="method-block">
+    <div class="method-sig">void setDamping(float d)</div>
+    <div class="method-desc">Control how quickly the string decays.</div>
+    <div class="method-param"><code>d</code> &mdash; <code>float</code> &mdash; 0.0 = longest sustain (metallic ring), 0.5 = natural pluck, 0.9 = very muted. Clamped to [0.0, 1.0].</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">void pluck(float freq)</div>
+    <div class="method-desc">Trigger a pluck at the specified frequency. Fills the delay with a noise burst and sets the pitch.</div>
+    <div class="method-param"><code>freq</code> &mdash; <code>float</code> &mdash; pitch in Hz. e.g., 440.0 for A4, or use midiToFreq(note).</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">float process()</div>
+    <div class="method-desc">Generate the next sample. Returns 0 when the string has decayed to silence.</div>
+    <div class="method-returns">Returns: <code>float</code> approximately in [-1.0, +1.0], decaying over time</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">bool isActive() const</div>
+    <div class="method-returns">Returns: <code>bool</code> &mdash; true if the string is still ringing</div>
+  </div>
+</div>
+
+<pre><code><span class="type">KarplusStrong</span>&lt;&gt; string;
+string.<span class="func">setDamping</span>(<span class="number">0.3f</span>);             <span class="comment">// Bright, sustained pluck</span>
+string.<span class="func">pluck</span>(<span class="func">midiToFreq</span>(NOTE_C4));  <span class="comment">// Pluck at Middle C</span>
+
+<span class="comment">// In audio callback:</span>
+<span class="type">float</span> sample = string.<span class="func">process</span>();
+
+<span class="comment">// Generative harp:</span>
+<span class="keyword">if</span> (clock.<span class="func">process</span>()) {
+    <span class="type">uint8_t</span> note = scale[rng.<span class="func">nextRange</span>(<span class="number">0</span>, <span class="number">4</span>)];
+    string.<span class="func">pluck</span>(<span class="func">midiToFreq</span>(note));
+}</code></pre>
+
+<!-- ── TempoClock ─────────────────────────────────────────────────────────── -->
+<h3>TempoClock <code>clock.h</code></h3>
+
+<div class="module-card">
+  <h4>Class: TempoClock</h4>
+  <p>
+    Sample-accurate tempo clock. Call <code>process()</code> once per sample &mdash; it returns <code>true</code> on beat ticks. Uses a float counter to prevent long-term timing drift.
+  </p>
+
+  <h4>Instantiation</h4>
+  <pre><code><span class="type">TempoClock</span> clock;                    <span class="comment">// Default: 120 BPM, quarter notes</span>
+<span class="type">TempoClock</span> clock(<span class="number">72.0f</span>, <span class="number">2</span>);          <span class="comment">// 72 BPM, eighth notes</span>
+<span class="type">TempoClock</span> fast(<span class="number">140.0f</span>, <span class="number">4</span>);          <span class="comment">// 140 BPM, sixteenth notes</span></code></pre>
+
+  <h4>Constructor</h4>
+  <div class="method-block">
+    <div class="method-sig">TempoClock(float bpm = 120.0f, uint8_t division = 1)</div>
+    <div class="method-param"><code>bpm</code> &mdash; <code>float</code> &mdash; tempo in beats per minute. For ambient: 60&ndash;90.</div>
+    <div class="method-param"><code>division</code> &mdash; <code>uint8_t</code> &mdash; ticks per beat. 1=quarter, 2=eighth, 4=sixteenth, 3=triplets.</div>
+  </div>
+
+  <h4>Methods</h4>
+
+  <div class="method-block">
+    <div class="method-sig">void setBPM(float bpm)</div>
+    <div class="method-desc">Set the tempo. Can be fractional (e.g., 72.5).</div>
+    <div class="method-param"><code>bpm</code> &mdash; <code>float</code> &mdash; beats per minute</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">void setDivision(uint8_t div)</div>
+    <div class="method-desc">Set clock division.</div>
+    <div class="method-param"><code>div</code> &mdash; <code>uint8_t</code> &mdash; 1=quarter, 2=eighth, 4=sixteenth. 0 is forced to 1.</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">bool process()</div>
+    <div class="method-desc">Advance by one sample. Call once per sample in your audio callback.</div>
+    <div class="method-returns">Returns: <code>bool</code> &mdash; true if a tick occurred on this sample</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">void reset()</div>
+    <div class="method-desc">Reset to tick 0, counter 0. Re-sync to downbeat.</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">uint32_t getTick() const</div>
+    <div class="method-desc">Current tick count since reset. Use with modulo for step sequencing.</div>
+    <div class="method-returns">Returns: <code>uint32_t</code> &mdash; total ticks (wraps at 2<sup>32</sup>)</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">float getBPM() const</div>
+    <div class="method-returns">Returns: <code>float</code> &mdash; current BPM setting</div>
+  </div>
+</div>
+
+<pre><code><span class="type">TempoClock</span> clock(<span class="number">72.0f</span>, <span class="number">1</span>);  <span class="comment">// 72 BPM, quarter notes</span>
+
+<span class="comment">// In audio callback:</span>
+<span class="keyword">if</span> (clock.<span class="func">process</span>()) {
+    <span class="type">int</span> step = clock.<span class="func">getTick</span>() % <span class="number">4</span>;  <span class="comment">// 4-step sequence</span>
+    osc.<span class="func">setFrequency</span>(<span class="func">midiToFreq</span>(sequence[step]));
+    env.<span class="func">trigger</span>();
+}</code></pre>
+
+<!-- ── midiToFreq ─────────────────────────────────────────────────────────── -->
+<h3>midiToFreq <code>midi_utils.h</code></h3>
+
+<div class="module-card">
+  <h4>Function: midiToFreq</h4>
+  <p>
+    Converts MIDI note numbers (0&ndash;127) to frequency in Hz using standard equal temperament (A4 = 440 Hz).
+  </p>
+
+  <div class="method-block">
+    <div class="method-sig">float midiToFreq(uint8_t noteNumber)</div>
+    <div class="method-desc">Convert MIDI note to frequency. Formula: 440 * 2<sup>(note - 69) / 12</sup></div>
+    <div class="method-param"><code>noteNumber</code> &mdash; <code>uint8_t</code> &mdash; MIDI note 0&ndash;127. Middle C = 60, Concert A = 69.</div>
+    <div class="method-returns">Returns: <code>float</code> &mdash; frequency in Hz</div>
+  </div>
+
+  <h4>Note Constants</h4>
+  <table>
+    <tr><th>Constant</th><th>Value</th><th>Note</th><th>Frequency</th></tr>
+    <tr><td><code>NOTE_C0</code></td><td>12</td><td>C0</td><td>16.4 Hz</td></tr>
+    <tr><td><code>NOTE_C1</code></td><td>24</td><td>C1</td><td>32.7 Hz</td></tr>
+    <tr><td><code>NOTE_C2</code></td><td>36</td><td>C2</td><td>65.4 Hz</td></tr>
+    <tr><td><code>NOTE_C3</code></td><td>48</td><td>C3</td><td>130.8 Hz</td></tr>
+    <tr><td><code>NOTE_C4</code></td><td>60</td><td>Middle C</td><td>261.6 Hz</td></tr>
+    <tr><td><code>NOTE_C5</code></td><td>72</td><td>C5</td><td>523.3 Hz</td></tr>
+    <tr><td><code>NOTE_C6</code></td><td>84</td><td>C6</td><td>1046.5 Hz</td></tr>
+    <tr><td><code>NOTE_C7</code></td><td>96</td><td>C7</td><td>2093.0 Hz</td></tr>
+    <tr><td><code>NOTE_A4</code></td><td>69</td><td>Concert A</td><td>440.0 Hz</td></tr>
+  </table>
+
+  <p>For sharps/flats, add or subtract: <code>NOTE_C4 + 1</code> = C#4, <code>NOTE_C4 + 3</code> = Eb4.</p>
+</div>
+
+<pre><code><span class="comment">// Play Middle C</span>
+osc.<span class="func">setFrequency</span>(<span class="func">midiToFreq</span>(NOTE_C4));  <span class="comment">// 261.6 Hz</span>
+
+<span class="comment">// Transpose up one octave</span>
+osc.<span class="func">setFrequency</span>(<span class="func">midiToFreq</span>(NOTE_C4 + <span class="number">12</span>));  <span class="comment">// 523.3 Hz</span>
+
+<span class="comment">// D major scale</span>
+<span class="type">uint8_t</span> dMajor[] = {<span class="number">62</span>, <span class="number">64</span>, <span class="number">66</span>, <span class="number">67</span>, <span class="number">69</span>, <span class="number">71</span>, <span class="number">73</span>}; <span class="comment">// D E F# G A B C#</span></code></pre>
+
+<!-- ── AnalogInput ────────────────────────────────────────────────────────── -->
+<h3>AnalogInput <code>analog_input.h</code></h3>
+
+<div class="module-card">
+  <h4>Class: AnalogInput</h4>
+  <p>
+    Smoothed ADC reader using exponential moving average. Call <code>update()</code> from <code>loop()</code> (never from audio ISR &mdash; analogRead is too slow). Read the smoothed value with <code>read()</code> which is ISR-safe.
+  </p>
+
+  <h4>Instantiation</h4>
+  <pre><code><span class="type">AnalogInput</span> sensor(PA0);             <span class="comment">// Default alpha 0.05</span>
+<span class="type">AnalogInput</span> knob(PA1, <span class="number">0.2f</span>);         <span class="comment">// Faster response for a pot</span>
+<span class="type">AnalogInput</span> light(PA0, <span class="number">0.01f</span>);       <span class="comment">// Very smooth for light sensor</span></code></pre>
+
+  <h4>Constructor</h4>
+  <div class="method-block">
+    <div class="method-sig">AnalogInput(uint8_t pin, float alpha = 0.05f)</div>
+    <div class="method-param"><code>pin</code> &mdash; <code>uint8_t</code> &mdash; analog pin (e.g., PA0, PA1). On Black Pill: PA0-PA7, PB0-PB1.</div>
+    <div class="method-param"><code>alpha</code> &mdash; <code>float</code> &mdash; smoothing factor 0.0&ndash;1.0. Lower = smoother/slower, higher = noisier/faster. 0.01 = very smooth, 0.05 = balanced, 0.3 = responsive.</div>
+  </div>
+
+  <h4>Methods</h4>
+
+  <div class="method-block">
+    <div class="method-sig">void update()</div>
+    <div class="method-desc">Read the ADC and update the smoothed value. Call from loop(), NOT from audio ISR. ~100 calls/sec is plenty.</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">float read() const</div>
+    <div class="method-desc">Get normalized smoothed value. Safe to call from audio ISR.</div>
+    <div class="method-returns">Returns: <code>float</code> &mdash; 0.0 (0V) to 1.0 (3.3V)</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">uint16_t readRaw() const</div>
+    <div class="method-desc">Get smoothed value as raw 12-bit integer.</div>
+    <div class="method-returns">Returns: <code>uint16_t</code> &mdash; 0 to 4095</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">void setAlpha(float a)</div>
+    <div class="method-desc">Change smoothing at runtime.</div>
+    <div class="method-param"><code>a</code> &mdash; <code>float</code> &mdash; new alpha value 0.0&ndash;1.0</div>
+  </div>
+</div>
+
+<pre><code><span class="type">AnalogInput</span> sensor(PA0, <span class="number">0.03f</span>);
+
+<span class="type">void</span> <span class="func">loop</span>() {
+    sensor.<span class="func">update</span>();
+    <span class="func">delay</span>(<span class="number">10</span>);  <span class="comment">// ~100 updates/sec</span>
+}
+
+<span class="comment">// In audio callback (safe to read from ISR):</span>
+<span class="type">float</span> brightness = sensor.<span class="func">read</span>();
+<span class="type">float</span> cutoff = <span class="func">mapf</span>(brightness, <span class="number">0.0f</span>, <span class="number">1.0f</span>, <span class="number">200.0f</span>, <span class="number">4000.0f</span>);
+filter.<span class="func">setFrequency</span>(cutoff);</code></pre>
+
+<!-- ── AudioEngine ────────────────────────────────────────────────────────── -->
+<h3>AudioEngine <code>audio_engine.h / .cpp</code></h3>
+
+<div class="module-card">
+  <h4>Namespace: AudioEngine</h4>
+  <p>
+    Configures I2S2 + DMA1 for continuous audio output to the UDA1334A. Double-buffered with half-complete and complete interrupts. You implement <code>audioCallback()</code> and call <code>AudioEngine::begin()</code>.
+  </p>
+
+  <h4>Usage</h4>
+  <pre><code><span class="comment">// 1. Implement this function (called by DMA interrupt):</span>
+<span class="type">void</span> <span class="func">audioCallback</span>(<span class="type">int16_t</span>* buffer, <span class="type">uint16_t</span> length) {
+    <span class="keyword">for</span> (<span class="type">uint16_t</span> i = <span class="number">0</span>; i &lt; length; i += <span class="number">2</span>) {
+        <span class="type">float</span> sample = osc.<span class="func">process</span>();
+        <span class="type">int16_t</span> s = (<span class="type">int16_t</span>)(sample * <span class="number">32000.0f</span>);
+        buffer[i]     = s;  <span class="comment">// Left</span>
+        buffer[i + <span class="number">1</span>] = s;  <span class="comment">// Right</span>
+    }
+}
+
+<span class="comment">// 2. Start the engine in setup():</span>
+<span class="type">void</span> <span class="func">setup</span>() {
+    AudioEngine::<span class="func">begin</span>();
+}</code></pre>
+
+  <h4>Functions</h4>
+
+  <div class="method-block">
+    <div class="method-sig">void AudioEngine::begin()</div>
+    <div class="method-desc">Initialize I2S + DMA and begin audio playback. Call once in setup().</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">void audioCallback(int16_t* buffer, uint16_t length)</div>
+    <div class="method-desc">User-implemented callback. Called by DMA interrupt ~172 times/sec.</div>
+    <div class="method-param"><code>buffer</code> &mdash; <code>int16_t*</code> &mdash; stereo interleaved samples [L, R, L, R, ...]</div>
+    <div class="method-param"><code>length</code> &mdash; <code>uint16_t</code> &mdash; number of int16_t values to fill (512 for 256 stereo frames)</div>
+  </div>
+</div>
+
+<div class="note">
+  <strong>ISR Rules:</strong> audioCallback runs in interrupt context. No Serial.print(), no analogRead(), no malloc/new. Keep computations minimal and predictable.
+</div>
+
+</section>
+
+<!-- ======================================================================= -->
+<section id="composition">
+<h2>Composing New Modules</h2>
+
+<p>
+  The BuddhaBox framework is designed to be <strong>composable</strong>: you build complex sounds by wiring simple modules together. Here's how to create your own reusable composite modules from the building blocks.
+</p>
+
+<h3>Pattern: Wrap Modules in a Class</h3>
+
+<p>
+  The simplest approach is to create a class that holds the modules you need as members and exposes a <code>process()</code> method. This encapsulates the signal routing and parameter management.
+</p>
+
+<h4>Example: Filtered Oscillator</h4>
+<p>An oscillator with a built-in filter and LFO-modulated cutoff:</p>
+
+<pre><code><span class="keyword">class</span> <span class="type">FilteredOsc</span> {
+<span class="keyword">public</span>:
+    <span class="type">void</span> <span class="func">setNote</span>(<span class="type">uint8_t</span> note) {
+        osc_.<span class="func">setFrequency</span>(<span class="func">midiToFreq</span>(note));
+    }
+
+    <span class="type">void</span> <span class="func">setFilterRange</span>(<span class="type">float</span> lo, <span class="type">float</span> hi) {
+        filterLo_ = lo;
+        filterHi_ = hi;
+    }
+
+    <span class="type">void</span> <span class="func">setLFORate</span>(<span class="type">float</span> hz) {
+        lfo_.<span class="func">setFrequency</span>(hz);
+    }
+
+    <span class="type">float</span> <span class="func">process</span>() {
+        <span class="comment">// LFO sweeps the filter cutoff</span>
+        <span class="type">float</span> mod = lfo_.<span class="func">process</span>();
+        <span class="type">float</span> cutoff = <span class="func">mapf</span>(mod, -<span class="number">1.0f</span>, <span class="number">1.0f</span>, filterLo_, filterHi_);
+        filter_.<span class="func">setFrequency</span>(cutoff);
+
+        <span class="comment">// Oscillator through filter</span>
+        filter_.<span class="func">process</span>(osc_.<span class="func">process</span>());
+        <span class="keyword">return</span> filter_.<span class="func">lowpass</span>();
+    }
+
+<span class="keyword">private</span>:
+    <span class="type">Oscillator</span> osc_;
+    <span class="type">SVFilter</span> filter_;
+    <span class="type">LFO</span> lfo_;
+    <span class="type">float</span> filterLo_ = <span class="number">200.0f</span>;
+    <span class="type">float</span> filterHi_ = <span class="number">3000.0f</span>;
+};</code></pre>
+
+<h4>Example: Enveloped Voice</h4>
+<p>A complete synth voice with oscillator + envelope + filter:</p>
+
+<pre><code><span class="keyword">class</span> <span class="type">SynthVoice</span> {
+<span class="keyword">public</span>:
+    <span class="type">void</span> <span class="func">noteOn</span>(<span class="type">uint8_t</span> note) {
+        osc_.<span class="func">setFrequency</span>(<span class="func">midiToFreq</span>(note));
+        env_.<span class="func">gate</span>(<span class="keyword">true</span>);
+    }
+
+    <span class="type">void</span> <span class="func">noteOff</span>() { env_.<span class="func">gate</span>(<span class="keyword">false</span>); }
+
+    <span class="type">bool</span> <span class="func">isActive</span>() { <span class="keyword">return</span> env_.<span class="func">isActive</span>(); }
+
+    <span class="type">float</span> <span class="func">process</span>() {
+        <span class="keyword">return</span> osc_.<span class="func">process</span>() * env_.<span class="func">process</span>();
+    }
+
+<span class="keyword">private</span>:
+    <span class="type">Oscillator</span> osc_;
+    <span class="type">Envelope</span> env_;
+};</code></pre>
+
+<h4>Example: Echo Unit</h4>
+<p>A reusable delay effect with controllable time and feedback:</p>
+
+<pre><code><span class="keyword">class</span> <span class="type">EchoUnit</span> {
+<span class="keyword">public</span>:
+    <span class="type">void</span> <span class="func">setTime</span>(<span class="type">float</span> samples) { time_ = samples; }
+    <span class="type">void</span> <span class="func">setFeedback</span>(<span class="type">float</span> fb) { feedback_ = <span class="func">clampf</span>(fb, <span class="number">0.0f</span>, <span class="number">0.95f</span>); }
+    <span class="type">void</span> <span class="func">setMix</span>(<span class="type">float</span> wet) { wet_ = wet; }
+
+    <span class="type">float</span> <span class="func">process</span>(<span class="type">float</span> input) {
+        <span class="type">float</span> delayed = delay_.<span class="func">read</span>(time_);
+        delay_.<span class="func">write</span>(input + delayed * feedback_);
+        <span class="keyword">return</span> input * (<span class="number">1.0f</span> - wet_) + delayed * wet_;
+    }
+
+<span class="keyword">private</span>:
+    <span class="type">DelayLine</span>&lt;<span class="number">8192</span>&gt; delay_;
+    <span class="type">float</span> time_ = <span class="number">4000.0f</span>;
+    <span class="type">float</span> feedback_ = <span class="number">0.4f</span>;
+    <span class="type">float</span> wet_ = <span class="number">0.3f</span>;
+};</code></pre>
+
+<h3>Key Principles</h3>
+
+<ul>
+  <li><strong>process() returns float:</strong> Keep the same pattern as built-in modules. Input and output are always float samples in [-1.0, +1.0].</li>
+  <li><strong>Members not pointers:</strong> Declare sub-modules as member variables (not pointers). This avoids dynamic allocation and the compiler can inline method calls.</li>
+  <li><strong>One sample at a time:</strong> Your <code>process()</code> should compute exactly one output sample per call, calling each sub-module's <code>process()</code> exactly once.</li>
+  <li><strong>Expose only what's needed:</strong> Don't pass through every sub-module parameter. Expose high-level controls that make sense for the composite (e.g., <code>noteOn</code> instead of separate <code>setFrequency</code> + <code>gate</code>).</li>
+  <li><strong>Watch your RAM:</strong> Each DelayLine uses significant RAM. Be mindful when composing modules that contain delay lines &mdash; check your build stats with <code>pio run</code>.</li>
+</ul>
+
+<h3>Composition Patterns</h3>
+
+<table>
+  <tr><th>Pattern</th><th>Signal Flow</th><th>Result</th></tr>
+  <tr><td>Series (chain)</td><td>A &#x2192; B &#x2192; C</td><td><code>c.process(b.process(a.process()))</code></td></tr>
+  <tr><td>Parallel (mix)</td><td>A &#x2192; &#x256E;<br>B &#x2192; &#x256F; mix</td><td><code>a.process() * 0.5f + b.process() * 0.5f</code></td></tr>
+  <tr><td>Modulation</td><td>LFO &#x2192; controls B's param</td><td><code>b.setFreq(mapf(lfo.process(), ...))</code></td></tr>
+  <tr><td>Triggered</td><td>Clock &#x2192; triggers envelope</td><td><code>if (clock.process()) env.trigger();</code></td></tr>
+  <tr><td>Feedback</td><td>A &#x2192; delay &#x2192; back to A</td><td><code>delay.write(a + delay.read(t) * fb)</code></td></tr>
+</table>
+
+</section>
+
+<!-- ======================================================================= -->
+<section id="examples">
+<h2>Examples</h2>
+
+<!-- ── Example A: Arpeggio ─────────────────────────────────────────────── -->
+<h3>A. D Major Arpeggio &mdash; Plucked Sine</h3>
+
+<p>
+  A simple sequencer that cycles through D&ndash;F#&ndash;A&ndash;D (D major triad
+  over one octave) at 140 BPM eighth notes. Each note is shaped by a short
+  envelope to create a plucked, bell-like quality.
+</p>
+
+<div class="signal-flow">TempoClock (140 BPM, eighths) &#x2192; triggers Envelope &#x2192; selects note
+Oscillator (sine) &#x00D7; Envelope &#x2192; Output</div>
+
+<pre><code><span class="comment">// ── Example A: D Major Arpeggio with Plucked Sine ──</span>
+
+<span class="keyword">#include</span> <span class="string">"audio_engine.h"</span>
+<span class="keyword">#include</span> <span class="string">"oscillator.h"</span>
+<span class="keyword">#include</span> <span class="string">"envelope.h"</span>
+<span class="keyword">#include</span> <span class="string">"clock.h"</span>
+<span class="keyword">#include</span> <span class="string">"midi_utils.h"</span>
+
+<span class="type">Oscillator</span> osc;
+<span class="type">Envelope</span> env;
+<span class="type">TempoClock</span> clock(<span class="number">140.0f</span>, <span class="number">2</span>);  <span class="comment">// 140 BPM, eighth notes</span>
+
+<span class="comment">// D major arpeggio: D4, F#4, A4, D5</span>
+<span class="keyword">const</span> <span class="type">uint8_t</span> arpeggio[] = {
+    NOTE_C4 + <span class="number">2</span>,   <span class="comment">// D4  (MIDI 62)</span>
+    NOTE_C4 + <span class="number">6</span>,   <span class="comment">// F#4 (MIDI 66)</span>
+    NOTE_C4 + <span class="number">9</span>,   <span class="comment">// A4  (MIDI 69)</span>
+    NOTE_C5 + <span class="number">2</span>    <span class="comment">// D5  (MIDI 74)</span>
+};
+<span class="keyword">const</span> <span class="type">int</span> arpLen = <span class="number">4</span>;
+
+<span class="type">void</span> <span class="func">audioCallback</span>(<span class="type">int16_t</span>* buffer, <span class="type">uint16_t</span> length) {
+    <span class="keyword">for</span> (<span class="type">uint16_t</span> i = <span class="number">0</span>; i &lt; length; i += <span class="number">2</span>) {
+
+        <span class="comment">// On each clock tick, advance to the next arpeggio note</span>
+        <span class="keyword">if</span> (clock.<span class="func">process</span>()) {
+            <span class="type">int</span> step = clock.<span class="func">getTick</span>() % arpLen;
+            osc.<span class="func">setFrequency</span>(<span class="func">midiToFreq</span>(arpeggio[step]));
+            env.<span class="func">trigger</span>();  <span class="comment">// Percussive: auto-releases after attack</span>
+        }
+
+        <span class="comment">// Sine oscillator shaped by the envelope</span>
+        <span class="type">float</span> sample = osc.<span class="func">process</span>() * env.<span class="func">process</span>() * <span class="number">0.6f</span>;
+
+        <span class="type">int16_t</span> s = (<span class="type">int16_t</span>)(<span class="func">clampf</span>(sample, -<span class="number">1.0f</span>, <span class="number">1.0f</span>) * <span class="number">32000.0f</span>);
+        buffer[i]     = s;
+        buffer[i + <span class="number">1</span>] = s;
+    }
+}
+
+<span class="type">void</span> <span class="func">setup</span>() {
+    osc.<span class="func">setWaveform</span>(Waveform::SINE);
+    osc.<span class="func">setAmplitude</span>(<span class="number">1.0f</span>);
+    env.<span class="func">setAttack</span>(<span class="number">0.002f</span>);    <span class="comment">// 2 ms — sharp pluck</span>
+    env.<span class="func">setRelease</span>(<span class="number">0.3f</span>);     <span class="comment">// 300 ms — bell-like decay</span>
+    AudioEngine::<span class="func">begin</span>();
+}
+
+<span class="type">void</span> <span class="func">loop</span>() { <span class="func">delay</span>(<span class="number">10</span>); }</code></pre>
+
+<!-- ── Example B: Rain Simulation ──────────────────────────────────────── -->
+<h3>B. Rain Simulation</h3>
+
+<p>
+  Layered filtered noise that sounds like rainfall. Two pink noise sources are
+  filtered at different frequencies: a low rumble (distant thunder/heavy drops)
+  and a high patter (light rain on a surface). An LFO slowly modulates the
+  high layer's brightness, simulating gusts of wind.
+</p>
+
+<div class="signal-flow">PinkNoise 1 &#x2192; SVFilter (LP 300 Hz) &#x2192; &#x256E;
+                                        &#x251C;&#x2192; Mix &#x2192; Output
+PinkNoise 2 &#x2192; SVFilter (LP, swept) &#x2192; &#x256F;
+                         &#x2191;
+                  LFO (tri, 0.07 Hz)</div>
+
+<pre><code><span class="comment">// ── Example B: Rain Simulation ──</span>
+
+<span class="keyword">#include</span> <span class="string">"audio_engine.h"</span>
+<span class="keyword">#include</span> <span class="string">"noise.h"</span>
+<span class="keyword">#include</span> <span class="string">"filter.h"</span>
+<span class="keyword">#include</span> <span class="string">"lfo.h"</span>
+
+<span class="type">PinkNoise</span> rainLow(<span class="number">11111</span>);
+<span class="type">PinkNoise</span> rainHigh(<span class="number">22222</span>);
+<span class="type">SVFilter</span> filterLow;
+<span class="type">SVFilter</span> filterHigh;
+<span class="type">LFO</span> gustLFO;
+
+<span class="type">void</span> <span class="func">audioCallback</span>(<span class="type">int16_t</span>* buffer, <span class="type">uint16_t</span> length) {
+    <span class="keyword">for</span> (<span class="type">uint16_t</span> i = <span class="number">0</span>; i &lt; length; i += <span class="number">2</span>) {
+        <span class="comment">// Layer 1: Low rumble</span>
+        filterLow.<span class="func">process</span>(rainLow.<span class="func">process</span>() * <span class="number">0.4f</span>);
+        <span class="type">float</span> rumble = filterLow.<span class="func">lowpass</span>();
+
+        <span class="comment">// Layer 2: High patter — filter swept by LFO</span>
+        <span class="type">float</span> cutoff = <span class="func">mapf</span>(gustLFO.<span class="func">process</span>(), -<span class="number">1.0f</span>, <span class="number">1.0f</span>, <span class="number">1500.0f</span>, <span class="number">6000.0f</span>);
+        filterHigh.<span class="func">setFrequency</span>(cutoff);
+        filterHigh.<span class="func">process</span>(rainHigh.<span class="func">process</span>() * <span class="number">0.25f</span>);
+        <span class="type">float</span> patter = filterHigh.<span class="func">lowpass</span>();
+
+        <span class="type">float</span> rain = rumble + patter;
+        <span class="type">int16_t</span> s = (<span class="type">int16_t</span>)(<span class="func">clampf</span>(rain, -<span class="number">1.0f</span>, <span class="number">1.0f</span>) * <span class="number">32000.0f</span>);
+        buffer[i]     = s;
+        buffer[i + <span class="number">1</span>] = s;
+    }
+}
+
+<span class="type">void</span> <span class="func">setup</span>() {
+    filterLow.<span class="func">setFrequency</span>(<span class="number">300.0f</span>);
+    filterLow.<span class="func">setResonance</span>(<span class="number">0.2f</span>);
+    filterHigh.<span class="func">setFrequency</span>(<span class="number">3000.0f</span>);
+    filterHigh.<span class="func">setResonance</span>(<span class="number">0.1f</span>);
+    gustLFO.<span class="func">setWaveform</span>(Waveform::TRIANGLE);
+    gustLFO.<span class="func">setFrequency</span>(<span class="number">0.07f</span>);
+    AudioEngine::<span class="func">begin</span>();
+}
+
+<span class="type">void</span> <span class="func">loop</span>() { <span class="func">delay</span>(<span class="number">10</span>); }</code></pre>
+
+<!-- ── Example C: Tanpura Drone ────────────────────────────────────────── -->
+<h3>C. Tanpura-like Drone</h3>
+
+<p>
+  A tanpura produces a shimmering, harmonically rich drone by plucking four
+  strings that ring continuously. This version uses the <strong>KarplusStrong</strong> class.
+  Four strings tuned to <strong>Pa&ndash;Sa&ndash;Sa&ndash;Sa</strong> (A3&ndash;D4&ndash;D4&ndash;D3)
+  are re-plucked in sequence by a slow tempo clock.
+</p>
+
+<div class="signal-flow">TempoClock (50 BPM) &#x2192; cycles through 4 strings, re-plucks each
+
+KarplusStrong[0] (A3) &#x2192; &#x256E;
+KarplusStrong[1] (D4) &#x2192; &#x251C;&#x2192; Mix &#x2192; softclip &#x2192; Output
+KarplusStrong[2] (D4) &#x2192; &#x2524;
+KarplusStrong[3] (D3) &#x2192; &#x256F;</div>
+
+<pre><code><span class="comment">// ── Example C: Tanpura-like Drone using KarplusStrong ──</span>
+
+<span class="keyword">#include</span> <span class="string">"audio_engine.h"</span>
+<span class="keyword">#include</span> <span class="string">"karplus.h"</span>
+<span class="keyword">#include</span> <span class="string">"clock.h"</span>
+<span class="keyword">#include</span> <span class="string">"midi_utils.h"</span>
+
+<span class="type">KarplusStrong</span>&lt;<span class="number">1024</span>&gt; strings[<span class="number">4</span>] = {
+    <span class="type">KarplusStrong</span>&lt;<span class="number">1024</span>&gt;(<span class="number">111</span>),  <span class="comment">// Different seeds per string</span>
+    <span class="type">KarplusStrong</span>&lt;<span class="number">1024</span>&gt;(<span class="number">222</span>),
+    <span class="type">KarplusStrong</span>&lt;<span class="number">1024</span>&gt;(<span class="number">333</span>),
+    <span class="type">KarplusStrong</span>&lt;<span class="number">1024</span>&gt;(<span class="number">444</span>)
+};
+
+<span class="type">TempoClock</span> pluckClock(<span class="number">50.0f</span>, <span class="number">1</span>);  <span class="comment">// Slow, meditative</span>
+
+<span class="comment">// Tanpura tuning: Pa, Sa, Sa, low Sa</span>
+<span class="keyword">const</span> <span class="type">uint8_t</span> tuning[] = {
+    NOTE_C4 + <span class="number">9</span>,   <span class="comment">// A3 — Pa (the fifth)</span>
+    NOTE_C4 + <span class="number">2</span>,   <span class="comment">// D4 — Sa (the tonic)</span>
+    NOTE_C4 + <span class="number">2</span>,   <span class="comment">// D4 — Sa (doubled)</span>
+    NOTE_C3 + <span class="number">2</span>    <span class="comment">// D3 — low Sa</span>
+};
+
+<span class="type">void</span> <span class="func">audioCallback</span>(<span class="type">int16_t</span>* buffer, <span class="type">uint16_t</span> length) {
+    <span class="keyword">for</span> (<span class="type">uint16_t</span> i = <span class="number">0</span>; i &lt; length; i += <span class="number">2</span>) {
+
+        <span class="keyword">if</span> (pluckClock.<span class="func">process</span>()) {
+            <span class="type">int</span> which = pluckClock.<span class="func">getTick</span>() % <span class="number">4</span>;
+            strings[which].<span class="func">pluck</span>(<span class="func">midiToFreq</span>(tuning[which]));
+        }
+
+        <span class="type">float</span> mix = <span class="number">0.0f</span>;
+        <span class="keyword">for</span> (<span class="type">int</span> s = <span class="number">0</span>; s &lt; <span class="number">4</span>; s++) {
+            mix += strings[s].<span class="func">process</span>() * <span class="number">0.3f</span>;
+        }
+
+        <span class="comment">// Soft clip for gentle warmth</span>
+        mix = <span class="func">softclip</span>(mix, <span class="number">1.5f</span>);
+
+        <span class="type">int16_t</span> out = (<span class="type">int16_t</span>)(<span class="func">clampf</span>(mix, -<span class="number">1.0f</span>, <span class="number">1.0f</span>) * <span class="number">32000.0f</span>);
+        buffer[i]     = out;
+        buffer[i + <span class="number">1</span>] = out;
+    }
+}
+
+<span class="type">void</span> <span class="func">setup</span>() {
+    <span class="comment">// Pluck all strings at startup</span>
+    <span class="keyword">for</span> (<span class="type">int</span> i = <span class="number">0</span>; i &lt; <span class="number">4</span>; i++) {
+        strings[i].<span class="func">pluck</span>(<span class="func">midiToFreq</span>(tuning[i]));
+    }
+    AudioEngine::<span class="func">begin</span>();
+}
+
+<span class="type">void</span> <span class="func">loop</span>() { <span class="func">delay</span>(<span class="number">10</span>); }</code></pre>
+
+<div class="tip">
+  <strong>Tip:</strong> To make the tanpura sound more authentic, try adding a very
+  subtle pitch bend by slowly modulating the delay time with an LFO (&plusmn;0.5 samples).
+  Real tanpura strings have a characteristic "jivari" buzz caused by the string
+  grazing the bridge &mdash; you can approximate this by increasing the damping slightly
+  and using <code>softclip()</code> with a higher drive value.
+</div>
+
+</section>
+
+<!-- ======================================================================= -->
+<section id="quickstart">
+<h2>Quick Start</h2>
+
+<h3>Prerequisites</h3>
+<p>
+  You need <strong>PlatformIO</strong> installed. Either:
+</p>
+<ul>
+  <li><strong>VS Code</strong> with the PlatformIO IDE extension, or</li>
+  <li><strong>PlatformIO CLI</strong>: <code>pip install platformio</code></li>
+</ul>
+
+<h3>Build</h3>
+<pre><code><span class="comment"># Clone or download the project, then:</span>
+cd buddhabox
+pio run           <span class="comment"># Compile the firmware</span></code></pre>
+
+<p>
+  First build takes a minute or two (downloads the STM32 toolchain).
+  Subsequent builds are fast (~2 seconds).
+</p>
+
+<h3>Upload</h3>
+<pre><code>pio run -t upload  <span class="comment"># Flash to the Black Pill via USB (DFU or ST-Link)</span></code></pre>
+
+<div class="note">
+  <strong>DFU Upload:</strong> To upload via the USB-C port (no ST-Link needed),
+  hold the <strong>BOOT0</strong> button, press and release <strong>NRST</strong> (reset),
+  then release BOOT0. The board enters DFU mode. Then run
+  <code>pio run -t upload</code>. You may need to add
+  <code>upload_protocol = dfu</code> to <code>platformio.ini</code>.
+</div>
+
+</section>
+
+<!-- ======================================================================= -->
+<section id="hardware">
+<h2>Hardware Setup</h2>
+
+<h3>Components</h3>
+<ul>
+  <li><strong>WeAct Studio Black Pill V2.0</strong> (STM32F401CCU6)</li>
+  <li><strong>UDA1334A I2S DAC breakout</strong> (e.g., Adafruit #3678 or generic)</li>
+  <li>3.5mm audio jack or speaker/amplifier</li>
+  <li>Jumper wires</li>
+  <li>Optional: photoresistor + 10K resistor for light sensor</li>
+</ul>
+
+<h3>Wiring: Black Pill &#x2192; UDA1334A</h3>
+
+<table class="wiring-table">
+  <tr>
+    <th>Black Pill Pin</th>
+    <th>UDA1334A Pin</th>
+    <th>Signal</th>
+    <th>Description</th>
+  </tr>
+  <tr>
+    <td>PB12</td>
+    <td>WSEL</td>
+    <td>LRCLK (Word Select)</td>
+    <td>Toggles between left and right channels at 44.1 kHz</td>
+  </tr>
+  <tr>
+    <td>PB13</td>
+    <td>BCLK</td>
+    <td>Bit Clock</td>
+    <td>Clocks out individual data bits (32x sample rate)</td>
+  </tr>
+  <tr>
+    <td>PB15</td>
+    <td>DIN</td>
+    <td>Data</td>
+    <td>Serial audio data, MSB first, Philips I2S format</td>
+  </tr>
+  <tr>
+    <td>GND</td>
+    <td>GND</td>
+    <td>Ground</td>
+    <td>Common ground reference</td>
+  </tr>
+  <tr>
+    <td>GND</td>
+    <td>MUTE</td>
+    <td>Mute Control</td>
+    <td>Recommended: Tie to GND. While many modules have internal pull-downs, grounding this ensures the DAC is never accidentally muted by noise.</td>
+  </tr>
+  <tr>
+    <td>GND</td>
+    <td>SF0/SF1</td>
+    <td>Format Select</td>
+    <td>Recommended: Tie to GND for standard I2S. Floating usually defaults to I2S, but grounding prevents format switching from interference.</td>
+  </tr>
+  <tr>
+    <td>3V3</td>
+    <td>VIN</td>
+    <td>Power</td>
+    <td>3.3V supply. Some UDA1334A boards accept 3.3&ndash;5V on VIN.</td>
+  </tr>
+</table>
+
+<h3>Wiring Diagram</h3>
+
+<div class="diagram-box">Black Pill (top view, USB-C at top)
+&#x250C;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2510;
+&#x2502;         [USB-C]         &#x2502;
+&#x2502;                         &#x2502;
+&#x2502;  3V3 &#x25CF;             &#x25CF; 5V&#x2502;
+&#x2502;                         &#x2502;
+&#x2502;  GND &#x25CF; &#x2500;&#x2500;&#x252C;&#x2500;&#x2500;&#x252C;&#x2500;&#x2500;&#x252C;&#x2500;&#x2500;&#x2500;&#x2500; &#x00B7; &#x2502;
+&#x2502;       &#x2502;  &#x2502;  &#x2514;&#x2500; MUTE &#x2500;&#x2510; &#x2502;
+&#x2502;    &#x00B7; &#x25CF;  &#x2502;  &#x2514;&#x2500;&#x2500; SF1  &#x2524; &#x2502; &#x2502;
+&#x2502;    &#x00B7; &#x25CF;  &#x2514;&#x2500;&#x2500;&#x2500; SF0  &#x2524; &#x2502; &#x2502;
+&#x2502;    &#x00B7; &#x25CF;           &#x2502; &#x2502; &#x2502;
+&#x2502;    &#x00B7; &#x25CF;           &#x2502; &#x2502; &#x2502;
+&#x2502;    &#x00B7; &#x25CF;           &#x2502; &#x2502; &#x2502;
+&#x2502;    &#x00B7; &#x25CF;           &#x2502; &#x2502; &#x2502;
+&#x2502;    &#x00B7; &#x25CF;           &#x2502; &#x2502; &#x2502;
+&#x2502;    &#x00B7; &#x25CF;     PB15 &#x25CF; &#x2502; &#x2500;&#x2500; DIN
+&#x2502;    &#x00B7; &#x25CF;           &#x00B7; &#x2502;
+&#x2502;    &#x00B7; &#x25CF;     PB13 &#x25CF; &#x2500;&#x2500; BCLK
+&#x2502;    &#x00B7; &#x25CF;     PB12 &#x25CF; &#x2500;&#x2500; WSEL
+&#x2502;  PA0 &#x25CF; &#x2190; sensor     &#x00B7; &#x2502;
+&#x2502;                         &#x2502;
+&#x2502;  [BOOT0]  [NRST]  [LED]&#x2502;
+&#x2514;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2518;</div>
+
+<div class="tip">
+  <strong>Note:</strong> Most CJMCU-1334 breakout boards require <strong>MUTE</strong>, <strong>SF0</strong>, and <strong>SF1</strong> to be tied to <strong>GND</strong> for standard I2S operation.
+</div>
+                                 &#x2502;
+                            [3.5mm jack]
+                                 &#x2502;
+                          headphones / amp</div>
+
+<h3>Optional: Analog Sensor (e.g., Photoresistor)</h3>
+
+<div class="diagram-box">3.3V &#x2500;&#x2500;&#x252C;&#x2500;&#x2500; Photoresistor &#x2500;&#x2500;&#x252C;&#x2500;&#x2500; PA0
+       &#x2502;                   &#x2502;
+       &#x2514;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500; 10K &#x03A9; &#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2518;
+                             &#x2502;
+                            GND
+
+This voltage divider produces ~0V (dark) to ~3.3V (bright)
+on PA0, which the ADC reads as 0&#x2013;4095.</div>
+
+<div class="note">
+  <strong>I2S Pin Note:</strong> The I2S pins (PB12, PB13, PB15) are fixed by
+  the STM32F401's internal peripheral routing &mdash; they map to the SPI2/I2S2
+  alternate function (AF5). If you need different pins, you'd need to use a
+  different I2S peripheral (I2S3 uses different pins) and modify
+  <code>audio_engine.cpp</code>.
+</div>
+
+</section>
+
+</div><!-- container -->
+
+<footer>
+  BuddhaBox DSP Framework &mdash; STM32F401CC + UDA1334A &mdash; PlatformIO + Arduino
+</footer>
+
+</body>
+</html>

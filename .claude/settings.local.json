@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pio platform list:*)",
+      "WebSearch",
+      "Bash(pio run:*)",
+      "Bash(~/.platformio/packages/tool-dfuutil/bin/dfu-util:*)",
+      "Bash(ioreg:*)",
+      "Bash(~/.platformio/packages/tool-stm32duino/stm32flash/stm32flash:*)"
+    ]
+  }
+}
