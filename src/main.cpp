@@ -1,30 +1,30 @@
 
-#include "audio_engine.h"
-#include "oscillator.h"
-#include "noise.h"
-#include "random.h"
-#include "lfo.h"
-#include "filter.h"
-#include "delay.h"
-#include "clock.h"
-#include "midi_utils.h"
 #include "analog_input.h"
+#include "audio_engine.h"
+#include "clock.h"
+#include "delay.h"
 #include "envelope.h"
+#include "filter.h"
+#include "lfo.h"
+#include "midi_utils.h"
+#include "noise.h"
+#include "oscillator.h"
+#include "random.h"
 
 PinkNoise pink_noise(69);
 Oscillator bass_osc;
 Oscillator osc;
 Envelope env;
-TempoClock clock(88.0f, 2);  // 140 BPM, eighth notes
+TempoClock clock(88.0f, 2); // 140 BPM, eighth notes
 
 // D major arpeggio: D4, F#4, A4, D5
 const uint8_t arpeggio[] = {
-  NOTE_C4 + 2,   // D4  (MIDI 62)
-  NOTE_C4 + 4,    // E4
-  NOTE_C4 + 6,   // F#4 (MIDI 66)
-  NOTE_C4 + 9,   // A4  (MIDI 69)
-  NOTE_C4 + 11,   // B4
-  NOTE_C5 + 2    // D5  (MIDI 74)
+    NOTE_C4 + 2,  // D4  (MIDI 62)
+    NOTE_C4 + 4,  // E4
+    NOTE_C4 + 6,  // F#4 (MIDI 66)
+    NOTE_C4 + 9,  // A4  (MIDI 69)
+    NOTE_C4 + 11, // B4
+    NOTE_C5 + 2   // D5  (MIDI 74)
 };
 const int arpLen = 6;
 
@@ -40,7 +40,7 @@ LFO filterLFO;
 LFO delayLFO;
 LFO delayFeedbackLFO;
 
-void audioCallback(int16_t* buffer, uint16_t length) {
+void audioCallback(int16_t *buffer, uint16_t length) {
   for (uint16_t i = 0; i < length; i += 2) {
 
     // On each clock tick, advance to the next arpeggio note
@@ -49,7 +49,7 @@ void audioCallback(int16_t* buffer, uint16_t length) {
         int step = clock.getTick() % arpLen;
         osc.setFrequency(midiToFreq(arpeggio[step]));
         env.reset();
-        env.trigger();  // Percussive: auto-releases after attack
+        env.trigger(); // Percussive: auto-releases after attack
       }
     }
 
@@ -59,19 +59,19 @@ void audioCallback(int16_t* buffer, uint16_t length) {
     noise_filter.setFrequency(mapf(lfotime, -1.0f, 1.0f, 800.0f, 1000.0f));
     noise_filter.process(noise);
     noise = noise_filter.lowpass();
-    
+
     // saw oscillator shaped by the envelope
     float sample = osc.process() * env.process() * 0.3f;
 
     filter2.setFrequency(mapf(lfotime, -1.0f, 1.0f, 400.0f, 500.0f));
     filter2.process(bass_osc.process());
-    
+
     // add bass
     sample = sample + filter2.lowpass() * 0.05f;
     sample = sample + noise;
-    
+
     float cutoff = mapf(lfotime, -1.0f, 1.0f, 600.0f, 2000.0f);
-    filter1.setFrequency(cutoff);        
+    filter1.setFrequency(cutoff);
     filter1.process(sample);
     sample = filter1.lowpass();
 
@@ -83,7 +83,7 @@ void audioCallback(int16_t* buffer, uint16_t length) {
     float out = (sample * 0.6) + (delayed * delay_fb);
 
     int16_t s = (int16_t)(softclip(out, 1.0f) * 32000.0f);
-    buffer[i]     = s;
+    buffer[i] = s;
     buffer[i + 1] = s;
   }
 }

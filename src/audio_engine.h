@@ -77,7 +77,8 @@
  *                Format: stereo interleaved 16-bit samples [L, R, L, R, ...]
  *                Each sample ranges from -32768 to +32767.
  *                To convert from float: (int16_t)(floatSample * 32000.0f)
- *                (We use 32000 instead of 32767 to leave a tiny bit of headroom)
+ *                (We use 32000 instead of 32767 to leave a tiny bit of
+ * headroom)
  *
  * @param length  Number of int16_t values to fill (= frames * 2 for stereo).
  *                With AUDIO_BLOCK_SIZE=256, length will be 512.
@@ -88,9 +89,9 @@
  *   - No dynamic memory allocation (malloc/new)
  *   - Keep computations minimal and predictable
  */
-extern void audioCallback(int16_t* buffer, uint16_t length);
+extern void audioCallback(int16_t *buffer, uint16_t length);
 
 namespace AudioEngine {
-    /** Initialize I2S + DMA and begin audio playback. Call once in setup(). */
-    void begin();
-}
+/** Initialize I2S + DMA and begin audio playback. Call once in setup(). */
+void begin();
+} // namespace AudioEngine

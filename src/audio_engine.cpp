@@ -27,7 +27,8 @@
 #include <stm32f4xx_hal.h>
 #include <stm32f4xx_hal_i2s.h>
 
-// ─── DMA Buffer ──────────────────────────────────────────────────────────────
+// ─── DMA Buffer
+// ──────────────────────────────────────────────────────────────
 //
 // The DMA buffer holds TWO blocks of stereo audio:
 //   Size = AUDIO_BLOCK_SIZE * 2 (stereo) * 2 (double buffer)
@@ -48,7 +49,8 @@ static DMA_HandleTypeDef hdma_i2s2_tx;
 // ─── DMA Interrupt Callbacks ────────────────────────────────────────────────
 //
 // The HAL calls these when DMA reaches the halfway point and the end of the
-// buffer respectively. We use them to fill the half that just finished playing.
+// buffer respectively. We use them to fill the half that just finished
+// playing.
 //
 // extern "C" is needed because the HAL is written in C, and C++ name mangling
 // would prevent the HAL from finding these functions.
@@ -57,99 +59,100 @@ static DMA_HandleTypeDef hdma_i2s2_tx;
  * Called when DMA finishes sending the FIRST half of the buffer.
  * We fill the first half with new samples while the second half plays.
  */
-extern "C" void HAL_I2S_TxHalfCpltCallback(I2S_HandleTypeDef* hi2s) {
-    audioCallback(dmaBuffer, AUDIO_BLOCK_SIZE * 2);
+extern "C" void HAL_I2S_TxHalfCpltCallback(I2S_HandleTypeDef *hi2s) {
+  audioCallback(dmaBuffer, AUDIO_BLOCK_SIZE * 2);
 }
 
 /**
  * Called when DMA finishes sending the SECOND half of the buffer.
  * We fill the second half with new samples while the first half plays.
  */
-extern "C" void HAL_I2S_TxCpltCallback(I2S_HandleTypeDef* hi2s) {
-    audioCallback(dmaBuffer + AUDIO_BLOCK_SIZE * 2, AUDIO_BLOCK_SIZE * 2);
+extern "C" void HAL_I2S_TxCpltCallback(I2S_HandleTypeDef *hi2s) {
+  audioCallback(dmaBuffer + AUDIO_BLOCK_SIZE * 2, AUDIO_BLOCK_SIZE * 2);
 }
 
 /**
  * DMA1 Stream4 interrupt handler — routes the interrupt to the HAL.
  */
 extern "C" void DMA1_Stream4_IRQHandler(void) {
-    HAL_DMA_IRQHandler(hi2s2.hdmatx);
+  HAL_DMA_IRQHandler(hi2s2.hdmatx);
 }
 
 namespace AudioEngine {
 
-/** 
+/**
  * Manually configure the I2S clock (PLLI2S).
- * 
- * CRITICAL: The STM32F401 has a dedicated PLL (Phase Locked Loop) for the I2S 
- * peripheral. Unlike most peripherals that run off the standard system clock, 
- * I2S requires this specific high-precision clock to generate the Bit Clock (BCLK) 
- * and Word Select (LRCLK). If this PLL is not initialized, the I2S peripheral 
- * will stay idle and never trigger DMA requests, resulting in silence.
+ *
+ * CRITICAL: The STM32F401 has a dedicated PLL (Phase Locked Loop) for the I2S
+ * peripheral. Unlike most peripherals that run off the standard system clock,
+ * I2S requires this specific high-precision clock to generate the Bit Clock
+ * (BCLK) and Word Select (LRCLK). If this PLL is not initialized, the I2S
+ * peripheral will stay idle and never trigger DMA requests, resulting in
+ * silence.
  */
 void configureI2SClock() {
-    RCC_PeriphCLKInitTypeDef PeriphClkInitStruct = {0};
-    
-    // Configure PLLI2S to generate 44.1kHz clock.
-    PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_I2S;
-    PeriphClkInitStruct.PLLI2S.PLLI2SN = 192; 
-    PeriphClkInitStruct.PLLI2S.PLLI2SR = 2;   
-    HAL_RCCEx_PeriphCLKConfig(&PeriphClkInitStruct);
+  RCC_PeriphCLKInitTypeDef PeriphClkInitStruct = {0};
+
+  // Configure PLLI2S to generate 44.1kHz clock.
+  PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_I2S;
+  PeriphClkInitStruct.PLLI2S.PLLI2SN = 192;
+  PeriphClkInitStruct.PLLI2S.PLLI2SR = 2;
+  HAL_RCCEx_PeriphCLKConfig(&PeriphClkInitStruct);
 }
 
 void begin() {
-    // ── Step 0: Configure I2S Clock (PLLI2S) ───────────────────────────
-    // Essential for the I2S peripheral to drive its internal bit clock.
-    configureI2SClock();
+  // ── Step 0: Configure I2S Clock (PLLI2S) ───────────────────────────
+  // Essential for the I2S peripheral to drive its internal bit clock.
+  configureI2SClock();
 
-    // ── Step 1: Enable peripheral clocks ────────────────────────────────
-    __HAL_RCC_SPI2_CLK_ENABLE();   // I2S2 shares the SPI2 clock domain
-    __HAL_RCC_DMA1_CLK_ENABLE();   // DMA controller clock
-    __HAL_RCC_GPIOB_CLK_ENABLE();  // GPIO Port B (where our I2S pins live)
+  // ── Step 1: Enable peripheral clocks ────────────────────────────────
+  __HAL_RCC_SPI2_CLK_ENABLE();  // I2S2 shares the SPI2 clock domain
+  __HAL_RCC_DMA1_CLK_ENABLE();  // DMA controller clock
+  __HAL_RCC_GPIOB_CLK_ENABLE(); // GPIO Port B (where our I2S pins live)
 
-    // ── Step 2: Configure GPIO pins for I2S ────────────────────────────
-    GPIO_InitTypeDef gpio = {};
-    gpio.Pin = GPIO_PIN_12 | GPIO_PIN_13 | GPIO_PIN_15;
-    gpio.Mode = GPIO_MODE_AF_PP;
-    gpio.Pull = GPIO_NOPULL;
-    gpio.Speed = GPIO_SPEED_FREQ_HIGH;
-    gpio.Alternate = GPIO_AF5_SPI2;
-    HAL_GPIO_Init(GPIOB, &gpio);
+  // ── Step 2: Configure GPIO pins for I2S ────────────────────────────
+  GPIO_InitTypeDef gpio = {};
+  gpio.Pin = GPIO_PIN_12 | GPIO_PIN_13 | GPIO_PIN_15;
+  gpio.Mode = GPIO_MODE_AF_PP;
+  gpio.Pull = GPIO_NOPULL;
+  gpio.Speed = GPIO_SPEED_FREQ_HIGH;
+  gpio.Alternate = GPIO_AF5_SPI2;
+  HAL_GPIO_Init(GPIOB, &gpio);
 
-    // ── Step 3: Configure I2S2 peripheral ──────────────────────────────
-    hi2s2.Instance = SPI2;
-    hi2s2.Init.Mode = I2S_MODE_MASTER_TX;
-    hi2s2.Init.Standard = I2S_STANDARD_PHILIPS;
-    hi2s2.Init.DataFormat = I2S_DATAFORMAT_16B;
-    hi2s2.Init.MCLKOutput = I2S_MCLKOUTPUT_DISABLE;
-    hi2s2.Init.AudioFreq = SAMPLE_RATE;
-    hi2s2.Init.CPOL = I2S_CPOL_LOW;
-    hi2s2.Init.FullDuplexMode = I2S_FULLDUPLEXMODE_DISABLE;
+  // ── Step 3: Configure I2S2 peripheral ──────────────────────────────
+  hi2s2.Instance = SPI2;
+  hi2s2.Init.Mode = I2S_MODE_MASTER_TX;
+  hi2s2.Init.Standard = I2S_STANDARD_PHILIPS;
+  hi2s2.Init.DataFormat = I2S_DATAFORMAT_16B;
+  hi2s2.Init.MCLKOutput = I2S_MCLKOUTPUT_DISABLE;
+  hi2s2.Init.AudioFreq = SAMPLE_RATE;
+  hi2s2.Init.CPOL = I2S_CPOL_LOW;
+  hi2s2.Init.FullDuplexMode = I2S_FULLDUPLEXMODE_DISABLE;
 
-    HAL_I2S_Init(&hi2s2);
+  HAL_I2S_Init(&hi2s2);
 
-    // ── Step 4: Configure DMA for I2S2 TX ──────────────────────────────
-    hdma_i2s2_tx.Instance = DMA1_Stream4;
-    hdma_i2s2_tx.Init.Channel = DMA_CHANNEL_0;
-    hdma_i2s2_tx.Init.Direction = DMA_MEMORY_TO_PERIPH;
-    hdma_i2s2_tx.Init.PeriphInc = DMA_PINC_DISABLE;
-    hdma_i2s2_tx.Init.MemInc = DMA_MINC_ENABLE;
-    hdma_i2s2_tx.Init.PeriphDataAlignment = DMA_PDATAALIGN_HALFWORD;
-    hdma_i2s2_tx.Init.MemDataAlignment = DMA_MDATAALIGN_HALFWORD;
-    hdma_i2s2_tx.Init.Mode = DMA_CIRCULAR;
-    hdma_i2s2_tx.Init.Priority = DMA_PRIORITY_HIGH;
-    hdma_i2s2_tx.Init.FIFOMode = DMA_FIFOMODE_DISABLE;
+  // ── Step 4: Configure DMA for I2S2 TX ──────────────────────────────
+  hdma_i2s2_tx.Instance = DMA1_Stream4;
+  hdma_i2s2_tx.Init.Channel = DMA_CHANNEL_0;
+  hdma_i2s2_tx.Init.Direction = DMA_MEMORY_TO_PERIPH;
+  hdma_i2s2_tx.Init.PeriphInc = DMA_PINC_DISABLE;
+  hdma_i2s2_tx.Init.MemInc = DMA_MINC_ENABLE;
+  hdma_i2s2_tx.Init.PeriphDataAlignment = DMA_PDATAALIGN_HALFWORD;
+  hdma_i2s2_tx.Init.MemDataAlignment = DMA_MDATAALIGN_HALFWORD;
+  hdma_i2s2_tx.Init.Mode = DMA_CIRCULAR;
+  hdma_i2s2_tx.Init.Priority = DMA_PRIORITY_HIGH;
+  hdma_i2s2_tx.Init.FIFOMode = DMA_FIFOMODE_DISABLE;
 
-    HAL_DMA_Init(&hdma_i2s2_tx);
-    __HAL_LINKDMA(&hi2s2, hdmatx, hdma_i2s2_tx);
+  HAL_DMA_Init(&hdma_i2s2_tx);
+  __HAL_LINKDMA(&hi2s2, hdmatx, hdma_i2s2_tx);
 
-    // ── Step 5: Enable DMA interrupt ───────────────────────────────────
-    HAL_NVIC_SetPriority(DMA1_Stream4_IRQn, 0, 0);
-    HAL_NVIC_EnableIRQ(DMA1_Stream4_IRQn);
+  // ── Step 5: Enable DMA interrupt ───────────────────────────────────
+  HAL_NVIC_SetPriority(DMA1_Stream4_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Stream4_IRQn);
 
-    // ── Step 6: Start DMA playback ─────────────────────────────────────
-    memset(dmaBuffer, 0, sizeof(dmaBuffer));
-    HAL_I2S_Transmit_DMA(&hi2s2, (uint16_t*)dmaBuffer, AUDIO_BLOCK_SIZE * 2 * 2);
+  // ── Step 6: Start DMA playback ─────────────────────────────────────
+  memset(dmaBuffer, 0, sizeof(dmaBuffer));
+  HAL_I2S_Transmit_DMA(&hi2s2, (uint16_t *)dmaBuffer, AUDIO_BLOCK_SIZE * 2 * 2);
 }
 
 } // namespace AudioEngine

@@ -1,6 +1,7 @@
 /**
  * @file envelope.h
- * @brief Attack-Release (AR) envelope generator for shaping amplitude over time.
+ * @brief Attack-Release (AR) envelope generator for shaping amplitude over
+ * time.
  *
  * An envelope controls how a sound's volume changes from the moment it starts
  * to when it fades away. Without an envelope, an oscillator just drones at a
@@ -102,198 +103,200 @@
  * SUSTAIN isn't a timed phase — it just holds at 1.0 while the gate is open.
  */
 enum class EnvState {
-    IDLE,       // Output = 0.0, waiting for gate
-    ATTACK,     // Ramping up from 0.0 toward 1.0
-    SUSTAIN,    // Holding at 1.0 while gate is open
-    RELEASE     // Ramping down from current level toward 0.0
+  IDLE,    // Output = 0.0, waiting for gate
+  ATTACK,  // Ramping up from 0.0 toward 1.0
+  SUSTAIN, // Holding at 1.0 while gate is open
+  RELEASE  // Ramping down from current level toward 0.0
 };
 
 class Envelope {
 public:
-    Envelope() {
-        setAttack(0.01f);   // 10 ms default attack
-        setRelease(0.5f);   // 500 ms default release
-    }
+  Envelope() {
+    setAttack(0.01f); // 10 ms default attack
+    setRelease(0.5f); // 500 ms default release
+  }
 
-    /**
-     * Set the attack time in seconds.
-     *
-     * This is how long it takes for the envelope to ramp from 0.0 to ~99%
-     * after the gate opens.
-     *
-     * @param seconds  Attack time in seconds.
-     *                 0.001 = 1 ms (percussive, instant)
-     *                 0.01  = 10 ms (snappy but not clicky)
-     *                 0.5   = 500 ms (gradual fade-in)
-     *                 3.0   = 3 seconds (slow swell)
-     *                 Minimum clamped to ~1 sample to prevent division by zero.
-     *
-     * Example:
-     *   env.setAttack(0.005f);  // 5 ms — good for plucks
-     */
-    void setAttack(float seconds) {
-        // We use -5.0/samples to ensure the exponential reaches 1 - e^-5 (~99.3%)
-        // in exactly the requested time. This matches user expectations better
-        // than the standard "time constant" tau which only reaches 63%.
-        float samples = seconds * SAMPLE_RATE;
-        if (samples < 1.0f) samples = 1.0f; // Prevent zero/negative
-        attackCoeff_ = expf(-5.0f / samples);
-    }
+  /**
+   * Set the attack time in seconds.
+   *
+   * This is how long it takes for the envelope to ramp from 0.0 to ~99%
+   * after the gate opens.
+   *
+   * @param seconds  Attack time in seconds.
+   *                 0.001 = 1 ms (percussive, instant)
+   *                 0.01  = 10 ms (snappy but not clicky)
+   *                 0.5   = 500 ms (gradual fade-in)
+   *                 3.0   = 3 seconds (slow swell)
+   *                 Minimum clamped to ~1 sample to prevent division by zero.
+   *
+   * Example:
+   *   env.setAttack(0.005f);  // 5 ms — good for plucks
+   */
+  void setAttack(float seconds) {
+    // We use -5.0/samples to ensure the exponential reaches 1 - e^-5 (~99.3%)
+    // in exactly the requested time. This matches user expectations better
+    // than the standard "time constant" tau which only reaches 63%.
+    float samples = seconds * SAMPLE_RATE;
+    if (samples < 1.0f)
+      samples = 1.0f; // Prevent zero/negative
+    attackCoeff_ = expf(-5.0f / samples);
+  }
 
-    /**
-     * Set the release time in seconds.
-     *
-     * This is how long it takes for the envelope to fade from its current
-     * level down to ~1% after the gate closes.
-     *
-     * @param seconds  Release time in seconds.
-     *                 0.05  = 50 ms (very short, clicky)
-     *                 0.15  = 150 ms (percussive)
-     *                 1.0   = 1 second (medium fade-out)
-     *                 5.0   = 5 seconds (long, ambient tail)
-     *                 10.0  = 10 seconds (very slow fade)
-     *
-     * Example:
-     *   env.setRelease(2.0f);  // 2-second fade-out
-     */
-    void setRelease(float seconds) {
-        float samples = seconds * SAMPLE_RATE;
-        if (samples < 1.0f) samples = 1.0f;
-        releaseCoeff_ = expf(-5.0f / samples);
-    }
+  /**
+   * Set the release time in seconds.
+   *
+   * This is how long it takes for the envelope to fade from its current
+   * level down to ~1% after the gate closes.
+   *
+   * @param seconds  Release time in seconds.
+   *                 0.05  = 50 ms (very short, clicky)
+   *                 0.15  = 150 ms (percussive)
+   *                 1.0   = 1 second (medium fade-out)
+   *                 5.0   = 5 seconds (long, ambient tail)
+   *                 10.0  = 10 seconds (very slow fade)
+   *
+   * Example:
+   *   env.setRelease(2.0f);  // 2-second fade-out
+   */
+  void setRelease(float seconds) {
+    float samples = seconds * SAMPLE_RATE;
+    if (samples < 1.0f)
+      samples = 1.0f;
+    releaseCoeff_ = expf(-5.0f / samples);
+  }
 
-    /**
-     * Open or close the gate (trigger/release a note).
-     *
-     * @param on  true = start attack (trigger note)
-     *            false = start release (release note)
-     *
-     * Calling gate(true) while already in ATTACK or SUSTAIN is safe —
-     * it just stays in the current state (no retriggering). If you want
-     * to retrigger from zero, call gate(false) then gate(true), or use
-     * trigger().
-     *
-     * Example:
-     *   env.gate(true);   // Note on — start attack
-     *   // ... hold for desired duration ...
-     *   env.gate(false);  // Note off — start release
-     */
-    void gate(bool on) {
-        if (on) {
-            state_ = EnvState::ATTACK;
-            oneShot_ = false; // Disable auto-release if we're gating manually
+  /**
+   * Open or close the gate (trigger/release a note).
+   *
+   * @param on  true = start attack (trigger note)
+   *            false = start release (release note)
+   *
+   * Calling gate(true) while already in ATTACK or SUSTAIN is safe —
+   * it just stays in the current state (no retriggering). If you want
+   * to retrigger from zero, call gate(false) then gate(true), or use
+   * trigger().
+   *
+   * Example:
+   *   env.gate(true);   // Note on — start attack
+   *   // ... hold for desired duration ...
+   *   env.gate(false);  // Note off — start release
+   */
+  void gate(bool on) {
+    if (on) {
+      state_ = EnvState::ATTACK;
+      oneShot_ = false; // Disable auto-release if we're gating manually
+    } else {
+      if (state_ != EnvState::IDLE) {
+        state_ = EnvState::RELEASE;
+      }
+    }
+  }
+
+  /**
+   * Trigger a one-shot note: start attack from the current level.
+   *
+   * To prevent audible "clicks" during rapid re-triggering, this version
+   * does NOT reset the envelope to 0.0 if it's already active. Instead,
+   * it ramps up from the current level. This is often called "legato
+   * re-triggering" and sounds much smoother for melodic sequences.
+   *
+   * The envelope will automatically move to RELEASE after reaching 1.0.
+   *
+   * Example:
+   *   if (clock.process()) {
+   *       env.trigger();
+   *   }
+   */
+  void trigger() {
+    state_ = EnvState::ATTACK;
+    oneShot_ = true; // Auto-release after attack completes
+  }
+
+  /**
+   * Instantly reset the envelope to zero and idle state.
+   * Use this with caution as it will cause a "click" if the envelope
+   * was currently audible. Useful for global stop/reset functions.
+   */
+  void reset() {
+    value_ = 0.0f;
+    state_ = EnvState::IDLE;
+    oneShot_ = false;
+  }
+
+  /**
+   * Generate the next envelope sample.
+   *
+   * Call this once per sample in your audio callback. Multiply the result
+   * with your audio signal to apply the envelope.
+   *
+   * @return  Envelope value, 0.0 (silence) to 1.0 (full volume)
+   *
+   * Example:
+   *   float audio = osc.process() * env.process();
+   */
+  float process() {
+    switch (state_) {
+    case EnvState::IDLE:
+      // Output stays at 0.0 — no sound
+      value_ = 0.0f;
+      break;
+
+    case EnvState::ATTACK:
+      // Exponential approach toward 1.0:
+      // value = value * coeff + (1.0 - coeff) * target
+      value_ = attackCoeff_ * value_ + (1.0f - attackCoeff_) * 1.0f;
+
+      // Check if we've reached the top (within a tiny threshold).
+      // 0.99 threshold is snappy and helps the envelope move to
+      // release quickly for plucks.
+      if (value_ >= 0.99f) {
+        value_ = 1.0f;
+        if (oneShot_) {
+          // trigger() mode: auto-release, no sustain
+          state_ = EnvState::RELEASE;
+          oneShot_ = false;
         } else {
-            if (state_ != EnvState::IDLE) {
-                state_ = EnvState::RELEASE;
-            }
+          // gate() mode: hold at 1.0 until gate closes
+          state_ = EnvState::SUSTAIN;
         }
-    }
+      }
+      break;
 
-    /**
-     * Trigger a one-shot note: start attack from the current level.
-     *
-     * To prevent audible "clicks" during rapid re-triggering, this version
-     * does NOT reset the envelope to 0.0 if it's already active. Instead,
-     * it ramps up from the current level. This is often called "legato
-     * re-triggering" and sounds much smoother for melodic sequences.
-     *
-     * The envelope will automatically move to RELEASE after reaching 1.0.
-     *
-     * Example:
-     *   if (clock.process()) {
-     *       env.trigger();
-     *   }
-     */
-    void trigger() {
-        state_ = EnvState::ATTACK;
-        oneShot_ = true; // Auto-release after attack completes
-    }
+    case EnvState::SUSTAIN:
+      // Hold at 1.0. The gate(false) call will transition us
+      // to RELEASE when the note should end.
+      value_ = 1.0f;
+      break;
 
-    /**
-     * Instantly reset the envelope to zero and idle state.
-     * Use this with caution as it will cause a "click" if the envelope
-     * was currently audible. Useful for global stop/reset functions.
-     */
-    void reset() {
+    case EnvState::RELEASE:
+      // Exponential decay toward 0.0:
+      value_ *= releaseCoeff_;
+
+      // Snap to zero when we're quiet enough to be inaudible.
+      // 0.0001 = -80 dB, well below the noise floor of 16-bit audio.
+      if (value_ < 0.0001f) {
         value_ = 0.0f;
         state_ = EnvState::IDLE;
-        oneShot_ = false;
+      }
+      break;
     }
 
-    /**
-     * Generate the next envelope sample.
-     *
-     * Call this once per sample in your audio callback. Multiply the result
-     * with your audio signal to apply the envelope.
-     *
-     * @return  Envelope value, 0.0 (silence) to 1.0 (full volume)
-     *
-     * Example:
-     *   float audio = osc.process() * env.process();
-     */
-    float process() {
-        switch (state_) {
-            case EnvState::IDLE:
-                // Output stays at 0.0 — no sound
-                value_ = 0.0f;
-                break;
+    return value_;
+  }
 
-            case EnvState::ATTACK:
-                // Exponential approach toward 1.0:
-                // value = value * coeff + (1.0 - coeff) * target
-                value_ = attackCoeff_ * value_ + (1.0f - attackCoeff_) * 1.0f;
+  /** @return  true if the envelope is active (not idle). */
+  bool isActive() const { return state_ != EnvState::IDLE; }
 
-                // Check if we've reached the top (within a tiny threshold).
-                // 0.99 threshold is snappy and helps the envelope move to
-                // release quickly for plucks.
-                if (value_ >= 0.99f) {
-                    value_ = 1.0f;
-                    if (oneShot_) {
-                        // trigger() mode: auto-release, no sustain
-                        state_ = EnvState::RELEASE;
-                        oneShot_ = false;
-                    } else {
-                        // gate() mode: hold at 1.0 until gate closes
-                        state_ = EnvState::SUSTAIN;
-                    }
-                }
-                break;
+  /** @return  The current envelope state. */
+  EnvState getState() const { return state_; }
 
-            case EnvState::SUSTAIN:
-                // Hold at 1.0. The gate(false) call will transition us
-                // to RELEASE when the note should end.
-                value_ = 1.0f;
-                break;
-
-            case EnvState::RELEASE:
-                // Exponential decay toward 0.0:
-                value_ *= releaseCoeff_;
-
-                // Snap to zero when we're quiet enough to be inaudible.
-                // 0.0001 = -80 dB, well below the noise floor of 16-bit audio.
-                if (value_ < 0.0001f) {
-                    value_ = 0.0f;
-                    state_ = EnvState::IDLE;
-                }
-                break;
-        }
-
-        return value_;
-    }
-
-    /** @return  true if the envelope is active (not idle). */
-    bool isActive() const { return state_ != EnvState::IDLE; }
-
-    /** @return  The current envelope state. */
-    EnvState getState() const { return state_; }
-
-    /** @return  The current envelope value (0.0–1.0) without advancing. */
-    float getValue() const { return value_; }
+  /** @return  The current envelope value (0.0–1.0) without advancing. */
+  float getValue() const { return value_; }
 
 private:
-    EnvState state_ = EnvState::IDLE;
-    float value_ = 0.0f;            // Current envelope output (0.0–1.0)
-    float attackCoeff_ = 0.0f;      // Exponential coefficient for attack
-    float releaseCoeff_ = 0.0f;     // Exponential coefficient for release
-    bool oneShot_ = false;          // true when triggered via trigger()
+  EnvState state_ = EnvState::IDLE;
+  float value_ = 0.0f;        // Current envelope output (0.0–1.0)
+  float attackCoeff_ = 0.0f;  // Exponential coefficient for attack
+  float releaseCoeff_ = 0.0f; // Exponential coefficient for release
+  bool oneShot_ = false;      // true when triggered via trigger()
 };

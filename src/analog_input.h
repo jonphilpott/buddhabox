@@ -55,94 +55,93 @@
 
 class AnalogInput {
 public:
-    /**
-     * Construct an AnalogInput reader.
-     *
-     * @param pin    The analog pin to read (e.g., PA0, PA1, PA4).
-     *               On the Black Pill, PA0-PA7 and PB0-PB1 are ADC-capable.
-     * @param alpha  Smoothing factor (0.0 to 1.0).
-     *               Lower = smoother but slower response.
-     *               Higher = noisier but faster response.
-     *               Default: 0.05 (good general-purpose value).
-     *
-     * Example:
-     *   AnalogInput sensor(PA0);          // Default smoothing
-     *   AnalogInput knob(PA1, 0.15f);     // Faster response for a pot
-     */
-    AnalogInput(uint8_t pin, float alpha = 0.05f)
-        : pin_(pin), alpha_(alpha), smoothed_(0.0f), initialized_(false) {}
+  /**
+   * Construct an AnalogInput reader.
+   *
+   * @param pin    The analog pin to read (e.g., PA0, PA1, PA4).
+   *               On the Black Pill, PA0-PA7 and PB0-PB1 are ADC-capable.
+   * @param alpha  Smoothing factor (0.0 to 1.0).
+   *               Lower = smoother but slower response.
+   *               Higher = noisier but faster response.
+   *               Default: 0.05 (good general-purpose value).
+   *
+   * Example:
+   *   AnalogInput sensor(PA0);          // Default smoothing
+   *   AnalogInput knob(PA1, 0.15f);     // Faster response for a pot
+   */
+  AnalogInput(uint8_t pin, float alpha = 0.05f)
+      : pin_(pin), alpha_(alpha), smoothed_(0.0f), initialized_(false) {}
 
-    /**
-     * Read the ADC and update the smoothed value.
-     *
-     * Call this from loop() at a regular interval (every 5–20 ms is fine).
-     * Do NOT call from the audio callback — analogRead() is too slow and
-     * would cause audio glitches.
-     *
-     * On the first call, the smoothed value is initialized to the current
-     * reading (no gradual ramp-up from zero).
-     */
-    void update() {
-        uint16_t raw = analogRead(pin_);
+  /**
+   * Read the ADC and update the smoothed value.
+   *
+   * Call this from loop() at a regular interval (every 5–20 ms is fine).
+   * Do NOT call from the audio callback — analogRead() is too slow and
+   * would cause audio glitches.
+   *
+   * On the first call, the smoothed value is initialized to the current
+   * reading (no gradual ramp-up from zero).
+   */
+  void update() {
+    uint16_t raw = analogRead(pin_);
 
-        if (!initialized_) {
-            // First reading: initialize directly to avoid a slow ramp from 0
-            smoothed_ = (float)raw;
-            initialized_ = true;
-        } else {
-            // Exponential Moving Average (EMA):
-            // smoothed += alpha * (raw - smoothed)
-            //
-            // When raw > smoothed, the difference is positive → smoothed increases.
-            // When raw < smoothed, the difference is negative → smoothed decreases.
-            // Alpha controls how fast: small alpha = slow tracking, large = fast.
-            smoothed_ += alpha_ * ((float)raw - smoothed_);
-        }
+    if (!initialized_) {
+      // First reading: initialize directly to avoid a slow ramp from 0
+      smoothed_ = (float)raw;
+      initialized_ = true;
+    } else {
+      // Exponential Moving Average (EMA):
+      // smoothed += alpha * (raw - smoothed)
+      //
+      // When raw > smoothed, the difference is positive → smoothed
+      // increases. When raw < smoothed, the difference is negative →
+      // smoothed decreases. Alpha controls how fast: small alpha = slow
+      // tracking, large = fast.
+      smoothed_ += alpha_ * ((float)raw - smoothed_);
     }
+  }
 
-    /**
-     * Get the smoothed value normalized to 0.0–1.0.
-     *
-     * Safe to call from the audio callback (ISR context).
-     *
-     * @return  Normalized sensor value. 0.0 = 0V, 1.0 = 3.3V (full scale).
-     *
-     * Example:
-     *   float val = sensor.read();
-     *   float freq = mapf(val, 0.0f, 1.0f, 100.0f, 2000.0f);
-     */
-    float read() const {
-        // STM32F4 ADC is 12-bit, so raw values range 0–4095.
-        // Dividing by 4095 maps this to 0.0–1.0.
-        return smoothed_ / 4095.0f;
-    }
+  /**
+   * Get the smoothed value normalized to 0.0–1.0.
+   *
+   * Safe to call from the audio callback (ISR context).
+   *
+   * @return  Normalized sensor value. 0.0 = 0V, 1.0 = 3.3V (full scale).
+   *
+   * Example:
+   *   float val = sensor.read();
+   *   float freq = mapf(val, 0.0f, 1.0f, 100.0f, 2000.0f);
+   */
+  float read() const {
+    // STM32F4 ADC is 12-bit, so raw values range 0–4095.
+    // Dividing by 4095 maps this to 0.0–1.0.
+    return smoothed_ / 4095.0f;
+  }
 
-    /**
-     * Get the smoothed value as a raw 12-bit integer (0–4095).
-     *
-     * Useful when you need integer precision or want to do your own
-     * scaling math.
-     *
-     * @return  Smoothed ADC value truncated to uint16_t
-     */
-    uint16_t readRaw() const {
-        return (uint16_t)smoothed_;
-    }
+  /**
+   * Get the smoothed value as a raw 12-bit integer (0–4095).
+   *
+   * Useful when you need integer precision or want to do your own
+   * scaling math.
+   *
+   * @return  Smoothed ADC value truncated to uint16_t
+   */
+  uint16_t readRaw() const { return (uint16_t)smoothed_; }
 
-    /**
-     * Change the smoothing factor at runtime.
-     *
-     * @param a  New alpha value (0.0–1.0).
-     *
-     * Example:
-     *   // Switch to faster response when reading a knob
-     *   sensor.setAlpha(0.2f);
-     */
-    void setAlpha(float a) { alpha_ = a; }
+  /**
+   * Change the smoothing factor at runtime.
+   *
+   * @param a  New alpha value (0.0–1.0).
+   *
+   * Example:
+   *   // Switch to faster response when reading a knob
+   *   sensor.setAlpha(0.2f);
+   */
+  void setAlpha(float a) { alpha_ = a; }
 
 private:
-    uint8_t pin_;       // ADC pin number
-    float alpha_;       // EMA smoothing coefficient
-    float smoothed_;    // Current smoothed value (in raw ADC units, 0-4095)
-    bool initialized_;  // Whether we've taken the first reading yet
+  uint8_t pin_;      // ADC pin number
+  float alpha_;      // EMA smoothing coefficient
+  float smoothed_;   // Current smoothed value (in raw ADC units, 0-4095)
+  bool initialized_; // Whether we've taken the first reading yet
 };

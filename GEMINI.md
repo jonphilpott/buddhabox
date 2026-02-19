@@ -58,6 +58,7 @@ To upload via USB-C (DFU mode):
 ### Coding & Documentation Standards
 
 - **Performance:** Avoid `double`, `sinf()` (use parabolic approximations), and any branching/I/O inside the `audioCallback`.
+- **Formatting:** Use LLVM C++ formatting, code can be reformatted with `clang-format -i --style=LLVM`
 
 #### Docstrings
 - Every class, function, and non-trivial method MUST have a detailed docstring

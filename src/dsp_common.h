@@ -1,10 +1,11 @@
 /**
  * @file dsp_common.h
- * @brief Shared constants, types, and utility functions for the BuddhaBox DSP framework.
+ * @brief Shared constants, types, and utility functions for the BuddhaBox DSP
+ * framework.
  *
- * This header is included by every DSP module. It defines the fundamental audio
- * parameters (sample rate, block size) and small helper functions that show up
- * everywhere in audio code.
+ * This header is included by every DSP module. It defines the fundamental
+ * audio parameters (sample rate, block size) and small helper functions that
+ * show up everywhere in audio code.
  *
  * DESIGN NOTE: We keep everything in this file `inline` or `constexpr` so it
  * can be included from multiple translation units without linker errors.
@@ -13,8 +14,8 @@
 
 #pragma once
 
-#include <cstdint>
 #include <cmath>
+#include <cstdint>
 
 // ─── Core Audio Parameters ──────────────────────────────────────────────────
 //
@@ -58,7 +59,7 @@ constexpr float TWO_PI_F = 6.28318530717959f;
  *   float safe = clampf(oscillator.process(), -1.0f, 1.0f);
  */
 inline float clampf(float x, float lo, float hi) {
-    return x < lo ? lo : (x > hi ? hi : x);
+  return x < lo ? lo : (x > hi ? hi : x);
 }
 
 /**
@@ -79,9 +80,7 @@ inline float clampf(float x, float lo, float hi) {
  *   // Crossfade between dry and wet signal
  *   float mix = lerpf(drySignal, wetSignal, 0.5f);  // 50/50 mix
  */
-inline float lerpf(float a, float b, float t) {
-    return a + (b - a) * t;
-}
+inline float lerpf(float a, float b, float t) { return a + (b - a) * t; }
 
 /**
  * Map a value from one range to another (like Arduino's map() but for floats).
@@ -101,7 +100,7 @@ inline float lerpf(float a, float b, float t) {
  *   float cutoff = mapf(sensor.read(), 0.0f, 1.0f, 200.0f, 5000.0f);
  */
 inline float mapf(float x, float inLo, float inHi, float outLo, float outHi) {
-    return outLo + (x - inLo) * (outHi - outLo) / (inHi - inLo);
+  return outLo + (x - inLo) * (outHi - outLo) / (inHi - inLo);
 }
 
 /**
@@ -136,6 +135,6 @@ inline float mapf(float x, float inLo, float inHi, float outLo, float outHi) {
  *   float distorted = softclip(osc.process(), 8.0f);
  */
 inline float softclip(float x, float drive = 1.0f) {
-    x *= drive;
-    return x / (1.0f + fabsf(x));
+  x *= drive;
+  return x / (1.0f + fabsf(x));
 }

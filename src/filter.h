@@ -1,6 +1,7 @@
 /**
  * @file filter.h
- * @brief State Variable Filter (SVF) with simultaneous low/high/bandpass outputs.
+ * @brief State Variable Filter (SVF) with simultaneous low/high/bandpass
+ * outputs.
  *
  * Filters are what transform raw waveforms and noise into musical, sculpted
  * sounds. This SVF implementation gives you three filter types from one
@@ -56,111 +57,113 @@
 
 class SVFilter {
 public:
-    SVFilter() {
-        setFrequency(1000.0f);
-        setResonance(0.0f);
-    }
+  SVFilter() {
+    setFrequency(1000.0f);
+    setResonance(0.0f);
+  }
 
-    /**
-     * Set the filter cutoff frequency in Hz.
-     *
-     * This is the frequency where the filter transitions between passing
-     * and rejecting. For a lowpass filter, frequencies below this pass
-     * through and frequencies above are attenuated.
-     *
-     * @param hz  Cutoff frequency in Hertz.
-     *            Useful range: 20 Hz (very dark) to ~10000 Hz (barely filtering).
-     *            Note: clamped to SAMPLE_RATE/4 for stability.
-     *
-     * Example:
-     *   // Sweep cutoff with an LFO for a "breathing" effect
-     *   float mod = lfo.process();
-     *   float cutoff = mapf(mod, -1.0f, 1.0f, 200.0f, 3000.0f);
-     *   filter.setFrequency(cutoff);
-     */
-    void setFrequency(float hz) {
-        // Clamp to prevent instability near Nyquist. The Chamberlin SVF
-        // uses a sin() approximation that breaks down above SR/4.
-        hz = clampf(hz, 20.0f, SAMPLE_RATE * 0.25f);
+  /**
+   * Set the filter cutoff frequency in Hz.
+   *
+   * This is the frequency where the filter transitions between passing
+   * and rejecting. For a lowpass filter, frequencies below this pass
+   * through and frequencies above are attenuated.
+   *
+   * @param hz  Cutoff frequency in Hertz.
+   *            Useful range: 20 Hz (very dark) to ~10000 Hz (barely
+   * filtering). Note: clamped to SAMPLE_RATE/4 for stability.
+   *
+   * Example:
+   *   // Sweep cutoff with an LFO for a "breathing" effect
+   *   float mod = lfo.process();
+   *   float cutoff = mapf(mod, -1.0f, 1.0f, 200.0f, 3000.0f);
+   *   filter.setFrequency(cutoff);
+   */
+  void setFrequency(float hz) {
+    // Clamp to prevent instability near Nyquist. The Chamberlin SVF
+    // uses a sin() approximation that breaks down above SR/4.
+    hz = clampf(hz, 20.0f, SAMPLE_RATE * 0.25f);
 
-        // The coefficient f = 2 * sin(π * fc / fs) controls how fast the
-        // integrators respond. At low frequencies, f is small (sluggish
-        // integrators = low cutoff). At high frequencies, f is larger.
-        f_ = 2.0f * sinf(PI_F * hz / SAMPLE_RATE);
-    }
+    // The coefficient f = 2 * sin(π * fc / fs) controls how fast the
+    // integrators respond. At low frequencies, f is small (sluggish
+    // integrators = low cutoff). At high frequencies, f is larger.
+    f_ = 2.0f * sinf(PI_F * hz / SAMPLE_RATE);
+  }
 
-    /**
-     * Set the filter resonance (Q).
-     *
-     * Resonance creates a peak in the frequency response at the cutoff.
-     * Higher resonance = sharper, more pronounced peak.
-     *
-     * @param q  Resonance amount, 0.0 to 1.0.
-     *           0.0 = no resonance (gentle rolloff)
-     *           0.5 = noticeable peak (classic synth sound)
-     *           0.9 = strong ringing, almost self-oscillating
-     *           1.0 = self-oscillation (filter produces a sine wave)
-     *           Clamped internally to prevent filter blowup.
-     *
-     * Example:
-     *   filter.setResonance(0.3f);  // Subtle warmth
-     *   filter.setResonance(0.7f);  // Aggressive, synthy character
-     */
-    void setResonance(float q) {
-        q_ = clampf(q, 0.0f, 1.0f);
-        // Damping is the inverse of resonance. Low damping = high resonance.
-        // The formula 2*(1-q) maps q=0 → damp=2 (overdamped, gentle) and
-        // q=1 → damp=0 (undamped, self-oscillation).
-        damp_ = 2.0f * (1.0f - q_);
-        // Floor at 0.5 to prevent complete instability at extreme settings
-        if (damp_ < 0.5f) damp_ = 0.5f;
-    }
+  /**
+   * Set the filter resonance (Q).
+   *
+   * Resonance creates a peak in the frequency response at the cutoff.
+   * Higher resonance = sharper, more pronounced peak.
+   *
+   * @param q  Resonance amount, 0.0 to 1.0.
+   *           0.0 = no resonance (gentle rolloff)
+   *           0.5 = noticeable peak (classic synth sound)
+   *           0.9 = strong ringing, almost self-oscillating
+   *           1.0 = self-oscillation (filter produces a sine wave)
+   *           Clamped internally to prevent filter blowup.
+   *
+   * Example:
+   *   filter.setResonance(0.3f);  // Subtle warmth
+   *   filter.setResonance(0.7f);  // Aggressive, synthy character
+   */
+  void setResonance(float q) {
+    q_ = clampf(q, 0.0f, 1.0f);
+    // Damping is the inverse of resonance. Low damping = high resonance.
+    // The formula 2*(1-q) maps q=0 → damp=2 (overdamped, gentle) and
+    // q=1 → damp=0 (undamped, self-oscillation).
+    damp_ = 2.0f * (1.0f - q_);
+    // Floor at 0.5 to prevent complete instability at extreme settings
+    if (damp_ < 0.5f)
+      damp_ = 0.5f;
+  }
 
-    /**
-     * Process one input sample through the filter.
-     *
-     * After calling this, read the desired output(s) via lowpass(),
-     * highpass(), and/or bandpass(). All three are updated simultaneously.
-     *
-     * @param input  The input sample (typically -1.0 to +1.0)
-     *
-     * Example:
-     *   float noise = noiseGen.process();
-     *   filter.process(noise);
-     *   float output = filter.lowpass();  // Warm, filtered noise
-     */
-    void process(float input) {
-        // Step 1: Update lowpass by integrating the bandpass output.
-        // The bandpass represents the "speed" of the signal near the cutoff;
-        // integrating it accumulates into the low-frequency content.
-        lp_ += f_ * bp_;
+  /**
+   * Process one input sample through the filter.
+   *
+   * After calling this, read the desired output(s) via lowpass(),
+   * highpass(), and/or bandpass(). All three are updated simultaneously.
+   *
+   * @param input  The input sample (typically -1.0 to +1.0)
+   *
+   * Example:
+   *   float noise = noiseGen.process();
+   *   filter.process(noise);
+   *   float output = filter.lowpass();  // Warm, filtered noise
+   */
+  void process(float input) {
+    // Step 1: Update lowpass by integrating the bandpass output.
+    // The bandpass represents the "speed" of the signal near the cutoff;
+    // integrating it accumulates into the low-frequency content.
+    lp_ += f_ * bp_;
 
-        // Step 2: Compute highpass as the "remainder" — everything the
-        // lowpass and (damped) bandpass didn't capture.
-        hp_ = input - lp_ - damp_ * bp_;
+    // Step 2: Compute highpass as the "remainder" — everything the
+    // lowpass and (damped) bandpass didn't capture.
+    hp_ = input - lp_ - damp_ * bp_;
 
-        // Step 3: Update bandpass by integrating the highpass output.
-        // This creates the feedback loop that makes the filter resonate.
-        bp_ += f_ * hp_;
-    }
+    // Step 3: Update bandpass by integrating the highpass output.
+    // This creates the feedback loop that makes the filter resonate.
+    bp_ += f_ * hp_;
+  }
 
-    /** @return  The lowpass filter output (frequencies below cutoff). */
-    float lowpass() const { return lp_; }
+  /** @return  The lowpass filter output (frequencies below cutoff). */
+  float lowpass() const { return lp_; }
 
-    /** @return  The highpass filter output (frequencies above cutoff). */
-    float highpass() const { return hp_; }
+  /** @return  The highpass filter output (frequencies above cutoff). */
+  float highpass() const { return hp_; }
 
-    /** @return  The bandpass filter output (frequencies near cutoff). */
-    float bandpass() const { return bp_; }
+  /** @return  The bandpass filter output (frequencies near cutoff). */
+  float bandpass() const { return bp_; }
 
-    /** Reset all internal state to zero. Use when changing patches to avoid artifacts. */
-    void clear() { lp_ = hp_ = bp_ = 0.0f; }
+  /** Reset all internal state to zero. Use when changing patches to avoid
+   * artifacts. */
+  void clear() { lp_ = hp_ = bp_ = 0.0f; }
 
 private:
-    float f_ = 0.0f;     // Frequency coefficient (controls cutoff)
-    float q_ = 0.0f;     // Resonance amount (stored for reference)
-    float damp_ = 2.0f;  // Damping factor (inverse of resonance)
-    float lp_ = 0.0f;    // Lowpass output state
-    float hp_ = 0.0f;    // Highpass output state
-    float bp_ = 0.0f;    // Bandpass output state
+  float f_ = 0.0f;    // Frequency coefficient (controls cutoff)
+  float q_ = 0.0f;    // Resonance amount (stored for reference)
+  float damp_ = 2.0f; // Damping factor (inverse of resonance)
+  float lp_ = 0.0f;   // Lowpass output state
+  float hp_ = 0.0f;   // Highpass output state
+  float bp_ = 0.0f;   // Bandpass output state
 };

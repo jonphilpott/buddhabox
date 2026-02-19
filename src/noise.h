@@ -52,39 +52,41 @@
  */
 class WhiteNoise {
 public:
-    /**
-     * @param seed  Initial PRNG state. Different seeds = different random
-     *              sequences. Use different seeds for each noise source to
-     *              avoid correlation (audible as phasing artifacts).
-     */
-    WhiteNoise(uint32_t seed = 12345) : state_(seed ? seed : 1) {}
+  /**
+   * @param seed  Initial PRNG state. Different seeds = different random
+   *              sequences. Use different seeds for each noise source to
+   *              avoid correlation (audible as phasing artifacts).
+   */
+  WhiteNoise(uint32_t seed = 12345) : state_(seed ? seed : 1) {}
 
-    /**
-     * Reset the random sequence with a new seed.
-     * @param s  New seed value (0 is forced to 1 since xorshift can't have zero state)
-     */
-    void seed(uint32_t s) { state_ = s ? s : 1; }
+  /**
+   * Reset the random sequence with a new seed.
+   * @param s  New seed value (0 is forced to 1 since xorshift can't have zero
+   * state)
+   */
+  void seed(uint32_t s) { state_ = s ? s : 1; }
 
-    /**
-     * Generate the next white noise sample.
-     *
-     * @return  Random value uniformly distributed in [-1.0, +1.0]
-     */
-    float process() {
-        // xorshift32: three XOR+shift operations produce the next pseudo-random value.
-        // This is one of the fastest PRNGs — critical since we call this 44100 times/sec.
-        state_ ^= state_ << 13;
-        state_ ^= state_ >> 17;
-        state_ ^= state_ << 5;
+  /**
+   * Generate the next white noise sample.
+   *
+   * @return  Random value uniformly distributed in [-1.0, +1.0]
+   */
+  float process() {
+    // xorshift32: three XOR+shift operations produce the next pseudo-random
+    // value. This is one of the fastest PRNGs — critical since we call this
+    // 44100 times/sec.
+    state_ ^= state_ << 13;
+    state_ ^= state_ >> 17;
+    state_ ^= state_ << 5;
 
-        // Convert unsigned 32-bit integer to float in [-1, +1]:
-        // Cast to signed int32_t (reinterprets bit pattern) then divide by
-        // the max positive value. This gives a uniform distribution.
-        return (float)(int32_t)state_ / 2147483648.0f;
-    }
+    // Convert unsigned 32-bit integer to float in [-1, +1]:
+    // Cast to signed int32_t (reinterprets bit pattern) then divide by
+    // the max positive value. This gives a uniform distribution.
+    return (float)(int32_t)state_ / 2147483648.0f;
+  }
 
 private:
-    uint32_t state_;
+  uint32_t state_;
 };
 
 /**
@@ -117,61 +119,63 @@ private:
  */
 class PinkNoise {
 public:
-    /** Number of octave rows. 12 rows covers the full audible spectrum. */
-    static constexpr int NUM_ROWS = 12;
+  /** Number of octave rows. 12 rows covers the full audible spectrum. */
+  static constexpr int NUM_ROWS = 12;
 
-    /**
-     * @param seed  Seed for the internal white noise generator.
-     */
-    PinkNoise(uint32_t seed = 54321) : white_(seed), counter_(0), runningSum_(0.0f) {
-        // Initialize all rows to zero (silence at startup)
-        for (int i = 0; i < NUM_ROWS; i++) rows_[i] = 0.0f;
+  /**
+   * @param seed  Seed for the internal white noise generator.
+   */
+  PinkNoise(uint32_t seed = 54321)
+      : white_(seed), counter_(0), runningSum_(0.0f) {
+    // Initialize all rows to zero (silence at startup)
+    for (int i = 0; i < NUM_ROWS; i++)
+      rows_[i] = 0.0f;
+  }
+
+  /** Re-seed the internal random generator. */
+  void seed(uint32_t s) { white_.seed(s); }
+
+  /**
+   * Generate the next pink noise sample.
+   *
+   * @return  Pink noise value, approximately in [-1.0, +1.0]
+   *          (clamped to prevent occasional spikes)
+   */
+  float process() {
+    // Step 1: Advance the counter. This drives the octave update pattern.
+    counter_++;
+
+    // Step 2: Find which row to update by counting trailing zeros.
+    // counter=1 (binary ...001) → row 0 (update every sample)
+    // counter=2 (binary ...010) → row 1 (update every 2 samples)
+    // counter=4 (binary ...100) → row 2 (update every 4 samples)
+    // This naturally creates the octave-spacing we need.
+    int numZeros = 0;
+    uint32_t n = counter_;
+    while ((n & 1) == 0 && numZeros < NUM_ROWS - 1) {
+      numZeros++;
+      n >>= 1;
     }
 
-    /** Re-seed the internal random generator. */
-    void seed(uint32_t s) { white_.seed(s); }
+    // Step 3: Replace the selected row with a new random value.
+    // We subtract the old value and add the new one to maintain a
+    // running sum — much faster than re-summing all 12 rows each sample.
+    runningSum_ -= rows_[numZeros];
+    float newVal = white_.process();
+    runningSum_ += newVal;
+    rows_[numZeros] = newVal;
 
-    /**
-     * Generate the next pink noise sample.
-     *
-     * @return  Pink noise value, approximately in [-1.0, +1.0]
-     *          (clamped to prevent occasional spikes)
-     */
-    float process() {
-        // Step 1: Advance the counter. This drives the octave update pattern.
-        counter_++;
+    // Step 4: Add one more white noise sample for the highest octave
+    // (this row conceptually changes every sample) and normalize.
+    float out = (runningSum_ + white_.process()) / (NUM_ROWS + 1);
 
-        // Step 2: Find which row to update by counting trailing zeros.
-        // counter=1 (binary ...001) → row 0 (update every sample)
-        // counter=2 (binary ...010) → row 1 (update every 2 samples)
-        // counter=4 (binary ...100) → row 2 (update every 4 samples)
-        // This naturally creates the octave-spacing we need.
-        int numZeros = 0;
-        uint32_t n = counter_;
-        while ((n & 1) == 0 && numZeros < NUM_ROWS - 1) {
-            numZeros++;
-            n >>= 1;
-        }
-
-        // Step 3: Replace the selected row with a new random value.
-        // We subtract the old value and add the new one to maintain a
-        // running sum — much faster than re-summing all 12 rows each sample.
-        runningSum_ -= rows_[numZeros];
-        float newVal = white_.process();
-        runningSum_ += newVal;
-        rows_[numZeros] = newVal;
-
-        // Step 4: Add one more white noise sample for the highest octave
-        // (this row conceptually changes every sample) and normalize.
-        float out = (runningSum_ + white_.process()) / (NUM_ROWS + 1);
-
-        // Step 5: Clamp to [-1, +1] to catch rare statistical spikes.
-        return clampf(out, -1.0f, 1.0f);
-    }
+    // Step 5: Clamp to [-1, +1] to catch rare statistical spikes.
+    return clampf(out, -1.0f, 1.0f);
+  }
 
 private:
-    WhiteNoise white_;       // Internal white noise source
-    uint32_t counter_;       // Sample counter drives row update scheduling
-    float runningSum_;       // Sum of all rows (maintained incrementally)
-    float rows_[NUM_ROWS];   // One random value per octave band
+  WhiteNoise white_;     // Internal white noise source
+  uint32_t counter_;     // Sample counter drives row update scheduling
+  float runningSum_;     // Sum of all rows (maintained incrementally)
+  float rows_[NUM_ROWS]; // One random value per octave band
 };

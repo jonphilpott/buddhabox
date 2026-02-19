@@ -54,159 +54,157 @@
  * filtering the output anyway. For a production synth you'd want
  * band-limited versions (PolyBLEP, wavetable, etc.).
  */
-enum class Waveform {
-    SINE,
-    SAW,
-    SQUARE,
-    TRIANGLE
-};
+enum class Waveform { SINE, SAW, SQUARE, TRIANGLE };
 
 class Oscillator {
 public:
-    Oscillator() = default;
+  Oscillator() = default;
 
-    /**
-     * Set the oscillator frequency in Hz.
-     *
-     * Internally this precomputes the phase increment so that process()
-     * only needs a single addition per sample — no division in the hot path.
-     *
-     * @param hz  Frequency in Hertz (e.g., 440.0 for concert A).
-     *            Typical audible range: 20 Hz – 20000 Hz.
-     *            For sub-bass drones, try 30–80 Hz.
-     *
-     * Example:
-     *   osc.setFrequency(midiToFreq(NOTE_C4)); // Middle C ≈ 261.6 Hz
-     */
-    void setFrequency(float hz) {
-        freq_ = hz;
-        // Phase increment = how much phase advances per sample.
-        // A 440 Hz tone at 44100 Hz sample rate: 440/44100 ≈ 0.00998
-        // meaning we complete one full 0→1 cycle every ~100 samples.
-        phaseInc_ = hz / SAMPLE_RATE;
+  /**
+   * Set the oscillator frequency in Hz.
+   *
+   * Internally this precomputes the phase increment so that process()
+   * only needs a single addition per sample — no division in the hot path.
+   *
+   * @param hz  Frequency in Hertz (e.g., 440.0 for concert A).
+   *            Typical audible range: 20 Hz – 20000 Hz.
+   *            For sub-bass drones, try 30–80 Hz.
+   *
+   * Example:
+   *   osc.setFrequency(midiToFreq(NOTE_C4)); // Middle C ≈ 261.6 Hz
+   */
+  void setFrequency(float hz) {
+    freq_ = hz;
+    // Phase increment = how much phase advances per sample.
+    // A 440 Hz tone at 44100 Hz sample rate: 440/44100 ≈ 0.00998
+    // meaning we complete one full 0→1 cycle every ~100 samples.
+    phaseInc_ = hz / SAMPLE_RATE;
+  }
+
+  /**
+   * Set the waveform shape.
+   * @param w  One of: Waveform::SINE, SAW, SQUARE, TRIANGLE
+   */
+  void setWaveform(Waveform w) { waveform_ = w; }
+
+  /**
+   * Set the output amplitude (volume scaling).
+   *
+   * @param a  Amplitude multiplier. 1.0 = full scale (-1 to +1 output).
+   *           0.5 = half volume. 0.0 = silence.
+   *           When mixing multiple oscillators, keep each around 0.2–0.4
+   *           to avoid clipping when they're summed together.
+   */
+  void setAmplitude(float a) { amplitude_ = a; }
+
+  /**
+   * Generate the next audio sample.
+   *
+   * Call this exactly once per sample in your audio callback.
+   * Each call advances the internal phase by one step.
+   *
+   * @return  The next sample value, range: [-amplitude, +amplitude]
+   *
+   * Example:
+   *   void audioCallback(int16_t* buf, uint16_t len) {
+   *       for (int i = 0; i < len; i += 2) {
+   *           float sample = osc.process();
+   *           int16_t s = (int16_t)(sample * 32000.0f);
+   *           buf[i] = s;      // Left channel
+   *           buf[i+1] = s;    // Right channel
+   *       }
+   *   }
+   */
+  float process() {
+    float out = 0.0f;
+
+    // Step 1: Compute waveform value from current phase (0.0–1.0)
+    switch (waveform_) {
+    case Waveform::SINE:
+      // Use fast parabolic approximation instead of sinf() — about
+      // 4x faster on Cortex-M4 while staying within ~0.1% accuracy.
+      out = fastSin(phase_ * TWO_PI_F);
+      break;
+
+    case Waveform::SAW:
+      // Linear ramp from -1 to +1 across the phase cycle.
+      // phase=0 → -1, phase=0.5 → 0, phase=1 → +1
+      out = 2.0f * phase_ - 1.0f;
+      break;
+
+    case Waveform::SQUARE:
+      // +1 for the first half of the cycle, -1 for the second half.
+      // The abrupt transition creates a rich harmonic spectrum.
+      out = phase_ < 0.5f ? 1.0f : -1.0f;
+      break;
+
+    case Waveform::TRIANGLE:
+      // Rises linearly from -1 to +1 in the first half,
+      // then falls from +1 to -1 in the second half.
+      // Mathematically: 1 - |2 * (2*phase - 1)| but split into
+      // two linear segments for clarity.
+      out = phase_ < 0.5f ? 4.0f * phase_ - 1.0f  // 0→0.5: ramps -1 to +1
+                          : 3.0f - 4.0f * phase_; // 0.5→1: ramps +1 to -1
+      break;
     }
 
-    /**
-     * Set the waveform shape.
-     * @param w  One of: Waveform::SINE, SAW, SQUARE, TRIANGLE
-     */
-    void setWaveform(Waveform w) { waveform_ = w; }
+    // Step 2: Advance phase and wrap around at 1.0
+    // This keeps phase bounded — without wrapping, it would grow forever
+    // and eventually lose floating-point precision.
+    phase_ += phaseInc_;
+    if (phase_ >= 1.0f)
+      phase_ -= 1.0f;
 
-    /**
-     * Set the output amplitude (volume scaling).
-     *
-     * @param a  Amplitude multiplier. 1.0 = full scale (-1 to +1 output).
-     *           0.5 = half volume. 0.0 = silence.
-     *           When mixing multiple oscillators, keep each around 0.2–0.4
-     *           to avoid clipping when they're summed together.
-     */
-    void setAmplitude(float a) { amplitude_ = a; }
+    // Step 3: Apply amplitude scaling
+    return out * amplitude_;
+  }
 
-    /**
-     * Generate the next audio sample.
-     *
-     * Call this exactly once per sample in your audio callback.
-     * Each call advances the internal phase by one step.
-     *
-     * @return  The next sample value, range: [-amplitude, +amplitude]
-     *
-     * Example:
-     *   void audioCallback(int16_t* buf, uint16_t len) {
-     *       for (int i = 0; i < len; i += 2) {
-     *           float sample = osc.process();
-     *           int16_t s = (int16_t)(sample * 32000.0f);
-     *           buf[i] = s;      // Left channel
-     *           buf[i+1] = s;    // Right channel
-     *       }
-     *   }
-     */
-    float process() {
-        float out = 0.0f;
+  /** Get the current phase position (0.0–1.0). Useful for syncing oscillators.
+   */
+  float getPhase() const { return phase_; }
 
-        // Step 1: Compute waveform value from current phase (0.0–1.0)
-        switch (waveform_) {
-            case Waveform::SINE:
-                // Use fast parabolic approximation instead of sinf() — about
-                // 4x faster on Cortex-M4 while staying within ~0.1% accuracy.
-                out = fastSin(phase_ * TWO_PI_F);
-                break;
-
-            case Waveform::SAW:
-                // Linear ramp from -1 to +1 across the phase cycle.
-                // phase=0 → -1, phase=0.5 → 0, phase=1 → +1
-                out = 2.0f * phase_ - 1.0f;
-                break;
-
-            case Waveform::SQUARE:
-                // +1 for the first half of the cycle, -1 for the second half.
-                // The abrupt transition creates a rich harmonic spectrum.
-                out = phase_ < 0.5f ? 1.0f : -1.0f;
-                break;
-
-            case Waveform::TRIANGLE:
-                // Rises linearly from -1 to +1 in the first half,
-                // then falls from +1 to -1 in the second half.
-                // Mathematically: 1 - |2 * (2*phase - 1)| but split into
-                // two linear segments for clarity.
-                out = phase_ < 0.5f
-                    ? 4.0f * phase_ - 1.0f      // 0→0.5: ramps -1 to +1
-                    : 3.0f - 4.0f * phase_;     // 0.5→1: ramps +1 to -1
-                break;
-        }
-
-        // Step 2: Advance phase and wrap around at 1.0
-        // This keeps phase bounded — without wrapping, it would grow forever
-        // and eventually lose floating-point precision.
-        phase_ += phaseInc_;
-        if (phase_ >= 1.0f) phase_ -= 1.0f;
-
-        // Step 3: Apply amplitude scaling
-        return out * amplitude_;
-    }
-
-    /** Get the current phase position (0.0–1.0). Useful for syncing oscillators. */
-    float getPhase() const { return phase_; }
-
-    /** Manually set the phase. Use to sync one oscillator to another. */
-    void setPhase(float p) { phase_ = p; }
+  /** Manually set the phase. Use to sync one oscillator to another. */
+  void setPhase(float p) { phase_ = p; }
 
 private:
-    /**
-     * Fast sine approximation using a parabolic curve.
-     *
-     * HOW THIS WORKS:
-     * A sine wave looks a lot like an upside-down parabola near its peaks.
-     * We exploit this by computing y = (4/π)x - (4/π²)x|x| which gives a
-     * rough sine shape, then apply a correction pass to improve accuracy.
-     *
-     * The result is accurate to within ~0.1% — more than enough for audio
-     * where we can't hear the difference. On the STM32F4 this runs about
-     * 4x faster than the standard library sinf().
-     *
-     * @param x  Angle in radians
-     * @return   Approximation of sin(x), range approximately [-1, +1]
-     */
-    static float fastSin(float x) {
-        // Normalize angle to [-π, π] range (the parabolic approximation
-        // only works correctly in this range)
-        x = fmodf(x, TWO_PI_F);
-        if (x > PI_F) x -= TWO_PI_F;
-        if (x < -PI_F) x += TWO_PI_F;
+  /**
+   * Fast sine approximation using a parabolic curve.
+   *
+   * HOW THIS WORKS:
+   * A sine wave looks a lot like an upside-down parabola near its peaks.
+   * We exploit this by computing y = (4/π)x - (4/π²)x|x| which gives a
+   * rough sine shape, then apply a correction pass to improve accuracy.
+   *
+   * The result is accurate to within ~0.1% — more than enough for audio
+   * where we can't hear the difference. On the STM32F4 this runs about
+   * 4x faster than the standard library sinf().
+   *
+   * @param x  Angle in radians
+   * @return   Approximation of sin(x), range approximately [-1, +1]
+   */
+  static float fastSin(float x) {
+    // Normalize angle to [-π, π] range (the parabolic approximation
+    // only works correctly in this range)
+    x = fmodf(x, TWO_PI_F);
+    if (x > PI_F)
+      x -= TWO_PI_F;
+    if (x < -PI_F)
+      x += TWO_PI_F;
 
-        // First pass: parabolic approximation
-        const float B = 4.0f / PI_F;
-        const float C = -4.0f / (PI_F * PI_F);
-        float y = B * x + C * x * fabsf(x);
+    // First pass: parabolic approximation
+    const float B = 4.0f / PI_F;
+    const float C = -4.0f / (PI_F * PI_F);
+    float y = B * x + C * x * fabsf(x);
 
-        // Second pass: correction factor improves peak accuracy from ~88%
-        // to ~99.7%. The magic number 0.225 was determined empirically.
-        y = 0.225f * (y * fabsf(y) - y) + y;
-        return y;
-    }
+    // Second pass: correction factor improves peak accuracy from ~88%
+    // to ~99.7%. The magic number 0.225 was determined empirically.
+    y = 0.225f * (y * fabsf(y) - y) + y;
+    return y;
+  }
 
-    Waveform waveform_ = Waveform::SINE;
-    float freq_ = 440.0f;
-    float phase_ = 0.0f;
-    float phaseInc_ = 440.0f / SAMPLE_RATE;
-    float amplitude_ = 1.0f;
+  Waveform waveform_ = Waveform::SINE;
+  float freq_ = 440.0f;
+  float phase_ = 0.0f;
+  float phaseInc_ = 440.0f / SAMPLE_RATE;
+  float amplitude_ = 1.0f;
 };

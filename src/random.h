@@ -73,15 +73,17 @@ public:
   uint32_t next() {
     // XOR the tap bits together to produce the feedback bit.
     // Bit positions 31, 21, 1, 0 form a maximal-length polynomial.
-    uint32_t bit = ((state_ >> 31) ^ (state_ >> 21) ^ (state_ >> 1) ^ state_) & 1u;
+    uint32_t bit =
+        ((state_ >> 31) ^ (state_ >> 21) ^ (state_ >> 1) ^ state_) & 1u;
     // Shift the register left and insert the feedback bit at position 0
     state_ = (state_ << 1) | bit;
 
-    // if, for some bizarre reason the state has become 0, set it to this comedy number.
+    // if, for some bizarre reason the state has become 0, set it to this
+    // comedy number.
     if (state_ == 0) {
       state_ = 69;
     }
-        
+
     return state_;
   }
 
@@ -101,7 +103,7 @@ public:
       state_ = state_ ^ 1;
     }
   }
-  
+
   /**
    * Generate a random float in [0.0, 1.0].
    *
@@ -133,9 +135,7 @@ public:
    *   float drift = rng.nextBipolar() * 0.5f;  // ±0.5 Hz
    *   osc.setFrequency(baseFreq + drift);
    */
-  float nextBipolar() {
-    return nextFloat() * 2.0f - 1.0f;
-  }
+  float nextBipolar() { return nextFloat() * 2.0f - 1.0f; }
 
   /**
    * Generate a random integer in [min, max] inclusive.
@@ -156,7 +156,8 @@ public:
    *   int idx = rng.nextRange(0, 4);
    */
   uint32_t nextRange(uint32_t min, uint32_t max) {
-    if (min >= max) return min;
+    if (min >= max)
+      return min;
     return min + (next() % (max - min + 1));
   }
 

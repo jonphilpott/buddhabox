@@ -29,9 +29,9 @@
  * BUILDING SCALES:
  * ────────────────
  * To create a scale, just list the MIDI note numbers. For example:
- *   C major:      {60, 62, 64, 65, 67, 69, 71}  (whole, whole, half, whole, whole, whole, half)
- *   C pentatonic: {60, 62, 64, 67, 69}           (the "can't go wrong" scale)
- *   C minor:      {60, 62, 63, 65, 67, 68, 70}
+ *   C major:      {60, 62, 64, 65, 67, 69, 71}  (whole, whole, half, whole,
+ * whole, whole, half) C pentatonic: {60, 62, 64, 67, 69}           (the "can't
+ * go wrong" scale) C minor:      {60, 62, 63, 65, 67, 68, 70}
  *
  * To transpose to a different key, add an offset to all notes.
  * E.g., D major = C major with +2 added to each note.
@@ -51,8 +51,8 @@
 
 #pragma once
 
-#include <cstdint>
 #include <cmath>
+#include <cstdint>
 
 /**
  * Convert a MIDI note number to frequency in Hz.
@@ -69,10 +69,10 @@
  *   midiToFreq(84)  → 1046.5  (C6, high)
  */
 inline float midiToFreq(uint8_t noteNumber) {
-    // 440 * 2^((note - 69) / 12)
-    // We use powf() here since this is called infrequently (on note changes,
-    // not per-sample), so the cost of a power function is negligible.
-    return 440.0f * powf(2.0f, ((float)noteNumber - 69.0f) / 12.0f);
+  // 440 * 2^((note - 69) / 12)
+  // We use powf() here since this is called infrequently (on note changes,
+  // not per-sample), so the cost of a power function is negligible.
+  return 440.0f * powf(2.0f, ((float)noteNumber - 69.0f) / 12.0f);
 }
 
 // ─── Note Name Constants ────────────────────────────────────────────────────
@@ -90,12 +90,12 @@ inline float midiToFreq(uint8_t noteNumber) {
 //   +3  = Minor 3rd   +9  = Major 6th
 //   +4  = Major 3rd
 
-constexpr uint8_t NOTE_C0  = 12;
-constexpr uint8_t NOTE_C1  = 24;
-constexpr uint8_t NOTE_C2  = 36;
-constexpr uint8_t NOTE_C3  = 48;
-constexpr uint8_t NOTE_C4  = 60;  // Middle C
-constexpr uint8_t NOTE_C5  = 72;
-constexpr uint8_t NOTE_C6  = 84;
-constexpr uint8_t NOTE_C7  = 96;
-constexpr uint8_t NOTE_A4  = 69;  // Concert A = 440 Hz
+constexpr uint8_t NOTE_C0 = 12;
+constexpr uint8_t NOTE_C1 = 24;
+constexpr uint8_t NOTE_C2 = 36;
+constexpr uint8_t NOTE_C3 = 48;
+constexpr uint8_t NOTE_C4 = 60; // Middle C
+constexpr uint8_t NOTE_C5 = 72;
+constexpr uint8_t NOTE_C6 = 84;
+constexpr uint8_t NOTE_C7 = 96;
+constexpr uint8_t NOTE_A4 = 69; // Concert A = 440 Hz
