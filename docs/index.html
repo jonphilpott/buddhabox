@@ -1736,7 +1736,8 @@ pio run           <span class="comment"># Compile the firmware</span></code></pr
 <div class="tip">
   <strong>Note:</strong> Most CJMCU-1334 breakout boards require <strong>MUTE</strong>, <strong>SF0</strong>, and <strong>SF1</strong> to be tied to <strong>GND</strong> for standard I2S operation.
 </div>
-                                 &#x2502;
+
+<div class="diagram-box">                                 &#x2502;
                             [3.5mm jack]
                                  &#x2502;
                           headphones / amp</div>
@@ -1758,6 +1759,76 @@ on PA0, which the ADC reads as 0&#x2013;4095.</div>
   alternate function (AF5). If you need different pins, you'd need to use a
   different I2S peripheral (I2S3 uses different pins) and modify
   <code>audio_engine.cpp</code>.
+</div>
+
+<h3>Alternative DAC/Amp: MAX98357A (Mono)</h3>
+
+<p>
+  The <strong>MAX98357A</strong> is an all-in-one I2S DAC and Class D Amplifier. It can drive a 4&Omega; or 8&Omega; speaker directly from the 5V USB power, making it ideal for a stand-alone BuddhaBox.
+</p>
+
+<table class="wiring-table">
+  <tr>
+    <th>Black Pill Pin</th>
+    <th>MAX98357A Pin</th>
+    <th>Signal</th>
+    <th>Description</th>
+  </tr>
+  <tr>
+    <td>PB12</td>
+    <td>LRC (WS)</td>
+    <td>Word Select</td>
+    <td>Standard I2S Word Select / LRCLK</td>
+  </tr>
+  <tr>
+    <td>PB13</td>
+    <td>BCLK</td>
+    <td>Bit Clock</td>
+    <td>Standard I2S Bit Clock</td>
+  </tr>
+  <tr>
+    <td>PB15</td>
+    <td>DIN</td>
+    <td>Data</td>
+    <td>Standard I2S Data</td>
+  </tr>
+  <tr>
+    <td>GND</td>
+    <td>GND</td>
+    <td>Ground</td>
+    <td>Common ground reference</td>
+  </tr>
+  <tr>
+    <td>5V</td>
+    <td>VIN</td>
+    <td>Power</td>
+    <td>5V for maximum volume (3.3V also works but is quieter)</td>
+  </tr>
+  <tr>
+    <td>(Floating)</td>
+    <td>SD</td>
+    <td>SD_MODE</td>
+    <td>Leave floating for (Left+Right)/2 mono mix</td>
+  </tr>
+</table>
+
+<h4>MAX98357A Wiring Diagram</h4>
+
+<div class="diagram-box">Black Pill (top view)             MAX98357A
+&#x250C;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2510;        &#x250C;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2510;
+&#x2502;         [USB-C]       &#x2502;        &#x2502;          &#x2502;
+&#x2502;                       &#x2502;        &#x2502;  [Speaker]&#x2502;
+&#x2502;     5V &#x25CF; &#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x25B6; VIN      &#x2502;
+&#x2502;                       &#x2502;        &#x2502;  [Out +/-]&#x2502;
+&#x2502;    GND &#x25CF; &#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x25B6; GND      &#x2502;
+&#x2502;                       &#x2502;        &#x2502;          &#x2502;
+&#x2502;   PB15 &#x25CF; &#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x25B6; DIN      &#x2502;
+&#x2502;   PB13 &#x25CF; &#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x25B6; BCLK     &#x2502;
+&#x2502;   PB12 &#x25CF; &#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x25B6; LRC (WS) &#x2502;
+&#x2514;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2518;        &#x2514;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2518;</div>
+
+<div class="tip">
+  <strong>Power Tip:</strong> Add a large capacitor (470&micro;F or higher) across the MAX98357A's <strong>VIN</strong> and <strong>GND</strong> to prevent voltage drops during loud peaks.
 </div>
 
 </section>

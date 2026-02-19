@@ -45,98 +45,121 @@
 
 class LFSR {
 public:
-    /**
-     * @param seed  Initial state. Must be non-zero (zero would produce
-     *              zero forever since XOR of zeros is zero).
-     *              Different seeds produce different sequences.
-     */
-    LFSR(uint32_t seed = 0xACE1u) : state_(seed ? seed : 1) {}
+  /**
+   * @param seed  Initial state. Must be non-zero (zero would produce
+   *              zero forever since XOR of zeros is zero).
+   *              Different seeds produce different sequences.
+   */
+  LFSR(uint32_t seed = 0xACE1u) : state_(seed ? seed : 1) {}
 
-    /**
-     * Reset with a new seed value.
-     * @param s  New seed (0 is forced to 1 to avoid the stuck-at-zero state)
-     */
-    void seed(uint32_t s) { state_ = s ? s : 1; }
+  /**
+   * Reset with a new seed value.
+   * @param s  New seed (0 is forced to 1 to avoid the stuck-at-zero state)
+   */
+  void seed(uint32_t s) { state_ = s ? s : 1; }
 
-    /**
-     * Advance the LFSR by one step and return the raw 32-bit state.
-     *
-     * The feedback polynomial uses taps at bits 31, 21, 1, and 0.
-     * These tap positions produce a maximal-length sequence — the LFSR
-     * visits all 2^32 - 1 non-zero states before repeating.
-     *
-     * @return  Raw 32-bit pseudo-random value
-     *
-     * Example:
-     *   uint32_t raw = rng.next();  // Full 32-bit random value
-     */
-    uint32_t next() {
-        // XOR the tap bits together to produce the feedback bit.
-        // Bit positions 31, 21, 1, 0 form a maximal-length polynomial.
-        uint32_t bit = ((state_ >> 31) ^ (state_ >> 21) ^ (state_ >> 1) ^ state_) & 1u;
-        // Shift the register left and insert the feedback bit at position 0
-        state_ = (state_ << 1) | bit;
-        return state_;
+  /**
+   * Advance the LFSR by one step and return the raw 32-bit state.
+   *
+   * The feedback polynomial uses taps at bits 31, 21, 1, and 0.
+   * These tap positions produce a maximal-length sequence — the LFSR
+   * visits all 2^32 - 1 non-zero states before repeating.
+   *
+   * @return  Raw 32-bit pseudo-random value
+   *
+   * Example:
+   *   uint32_t raw = rng.next();  // Full 32-bit random value
+   */
+  uint32_t next() {
+    // XOR the tap bits together to produce the feedback bit.
+    // Bit positions 31, 21, 1, 0 form a maximal-length polynomial.
+    uint32_t bit = ((state_ >> 31) ^ (state_ >> 21) ^ (state_ >> 1) ^ state_) & 1u;
+    // Shift the register left and insert the feedback bit at position 0
+    state_ = (state_ << 1) | bit;
+
+    // if, for some bizarre reason the state has become 0, set it to this comedy number.
+    if (state_ == 0) {
+      state_ = 69;
     }
+        
+    return state_;
+  }
 
-    /**
-     * Generate a random float in [0.0, 1.0].
-     *
-     * Useful for probability checks and generating parameter values.
-     *
-     * @return  Uniformly distributed float between 0.0 and 1.0
-     *
-     * Example:
-     *   if (rng.nextFloat() < 0.25f) {
-     *       // This branch executes ~25% of the time
-     *       changeNote();
-     *   }
-     */
-    float nextFloat() {
-        // Mask off the sign bit to get a positive value, then normalize
-        // to 0.0–1.0 by dividing by the max positive 31-bit integer.
-        return (float)(next() & 0x7FFFFFFF) / 2147483647.0f;
+  /*
+   * flips a bit in the LFSR based on if val's LSB is 1 or not.  the
+   * idea here is that you can pass in the value from one of the
+   * analog inputs which will be naturally noisy to flip a bit and
+   * change up the sequence
+   *
+   * @return void
+   *
+   * Example:
+   *   rng.add_entropy(42)
+   */
+  void add_entropy(uint8_t val) {
+    if (val & 1) {
+      state_ = state_ ^ 1;
     }
+  }
+  
+  /**
+   * Generate a random float in [0.0, 1.0].
+   *
+   * Useful for probability checks and generating parameter values.
+   *
+   * @return  Uniformly distributed float between 0.0 and 1.0
+   *
+   * Example:
+   *   if (rng.nextFloat() < 0.25f) {
+   *       // This branch executes ~25% of the time
+   *       changeNote();
+   *   }
+   */
+  float nextFloat() {
+    // Mask off the sign bit to get a positive value, then normalize
+    // to 0.0–1.0 by dividing by the max positive 31-bit integer.
+    return (float)(next() & 0x7FFFFFFF) / 2147483647.0f;
+  }
 
-    /**
-     * Generate a random float in [-1.0, +1.0].
-     *
-     * Useful for random modulation offsets (e.g., slight pitch drift).
-     *
-     * @return  Uniformly distributed float between -1.0 and +1.0
-     *
-     * Example:
-     *   // Add subtle random pitch drift to an oscillator
-     *   float drift = rng.nextBipolar() * 0.5f;  // ±0.5 Hz
-     *   osc.setFrequency(baseFreq + drift);
-     */
-    float nextBipolar() {
-        return nextFloat() * 2.0f - 1.0f;
-    }
+  /**
+   * Generate a random float in [-1.0, +1.0].
+   *
+   * Useful for random modulation offsets (e.g., slight pitch drift).
+   *
+   * @return  Uniformly distributed float between -1.0 and +1.0
+   *
+   * Example:
+   *   // Add subtle random pitch drift to an oscillator
+   *   float drift = rng.nextBipolar() * 0.5f;  // ±0.5 Hz
+   *   osc.setFrequency(baseFreq + drift);
+   */
+  float nextBipolar() {
+    return nextFloat() * 2.0f - 1.0f;
+  }
 
-    /**
-     * Generate a random integer in [min, max] inclusive.
-     *
-     * Uses modulo to constrain the range. Note: this has slight bias for
-     * ranges that don't evenly divide 2^32, but for musical purposes
-     * (picking from 5-12 notes in a scale) the bias is negligible.
-     *
-     * @param min  Minimum value (inclusive)
-     * @param max  Maximum value (inclusive)
-     * @return     Random integer in [min, max]
-     *
-     * Example:
-     *   // Pick a random MIDI note between C3 and C5
-     *   uint8_t note = rng.nextRange(48, 72);
-     *
-     *   // Random index into a 5-element array
-     *   int idx = rng.nextRange(0, 4);
-     */
-    uint32_t nextRange(uint32_t min, uint32_t max) {
-        if (min >= max) return min;
-        return min + (next() % (max - min + 1));
-    }
+  /**
+   * Generate a random integer in [min, max] inclusive.
+   *
+   * Uses modulo to constrain the range. Note: this has slight bias for
+   * ranges that don't evenly divide 2^32, but for musical purposes
+   * (picking from 5-12 notes in a scale) the bias is negligible.
+   *
+   * @param min  Minimum value (inclusive)
+   * @param max  Maximum value (inclusive)
+   * @return     Random integer in [min, max]
+   *
+   * Example:
+   *   // Pick a random MIDI note between C3 and C5
+   *   uint8_t note = rng.nextRange(48, 72);
+   *
+   *   // Random index into a 5-element array
+   *   int idx = rng.nextRange(0, 4);
+   */
+  uint32_t nextRange(uint32_t min, uint32_t max) {
+    if (min >= max) return min;
+    return min + (next() % (max - min + 1));
+  }
 
 private:
-    uint32_t state_;
+  uint32_t state_;
 };

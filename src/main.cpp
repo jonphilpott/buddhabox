@@ -38,6 +38,7 @@ DelayLine<8192> delay1;
 
 LFO filterLFO;
 LFO delayLFO;
+LFO delayFeedbackLFO;
 
 void audioCallback(int16_t* buffer, uint16_t length) {
   for (uint16_t i = 0; i < length; i += 2) {
@@ -55,18 +56,18 @@ void audioCallback(int16_t* buffer, uint16_t length) {
     float lfotime = filterLFO.process();
 
     float noise = pink_noise.process() * 0.3f;
-    noise_filter.setFrequency(mapf(lfotime, -1.0f, 1.0f, 100.0f, 200.0f));
+    noise_filter.setFrequency(mapf(lfotime, -1.0f, 1.0f, 800.0f, 1000.0f));
     noise_filter.process(noise);
     noise = noise_filter.lowpass();
     
     // saw oscillator shaped by the envelope
     float sample = osc.process() * env.process() * 0.3f;
 
-    filter2.setFrequency(mapf(lfotime, -1.0f, 1.0f, 200.0f, 250.0f));
+    filter2.setFrequency(mapf(lfotime, -1.0f, 1.0f, 400.0f, 500.0f));
     filter2.process(bass_osc.process());
     
     // add bass
-    sample = sample + filter2.lowpass() * 0.2f;
+    sample = sample + filter2.lowpass() * 0.05f;
     sample = sample + noise;
     
     float cutoff = mapf(lfotime, -1.0f, 1.0f, 600.0f, 2000.0f);
@@ -75,12 +76,11 @@ void audioCallback(int16_t* buffer, uint16_t length) {
     sample = filter1.lowpass();
 
     float dlfo = delayLFO.process();
-
+    float delay_fb = mapf(delayFeedbackLFO.process(), -1.0f, 1.0f, 0.2f, 0.09f);
     float delayed = delay1.read(mapf(dlfo, -1.0f, 1.0f, 8000.0f, 8100.0f));
     delay1.write(sample + delayed * 0.8f);
 
-    float out = sample * 0.6 + delayed * 0.4f;
-    out = out * 0.5;
+    float out = (sample * 0.6) + (delayed * delay_fb);
 
     int16_t s = (int16_t)(softclip(out, 1.0f) * 32000.0f);
     buffer[i]     = s;
@@ -103,6 +103,8 @@ void setup() {
   filterLFO.setFrequency(0.125f);
   delayLFO.setWaveform(Waveform::SINE);
   delayLFO.setFrequency(0.5f);
+  delayFeedbackLFO.setWaveform(Waveform::SAW);
+  delayLFO.setFrequency(0.2f);
   AudioEngine::begin();
 }
 
