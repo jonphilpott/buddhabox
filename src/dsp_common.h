@@ -31,7 +31,7 @@
 // imperceptible for a generative ambient device.
 
 constexpr uint32_t SAMPLE_RATE = 44100;
-constexpr uint16_t AUDIO_BLOCK_SIZE = 512;
+constexpr uint16_t AUDIO_BLOCK_SIZE = 256;
 
 // ─── Math Constants ─────────────────────────────────────────────────────────
 //

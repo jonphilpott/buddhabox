@@ -46,23 +46,6 @@ static int16_t dmaBuffer[AUDIO_BLOCK_SIZE * 2 * 2];
 static I2S_HandleTypeDef hi2s2;
 static DMA_HandleTypeDef hdma_i2s2_tx;
 
-namespace AudioEngine {
-// ─── Performance Monitoring Variables ─────────────────────────────────────────
-//
-// These track how long the audioCallback() takes to run.
-// They are volatile because they are updated in an interrupt (ISR)
-// but read in the main loop().
-static volatile uint32_t lastTimeUs = 0;
-static volatile uint32_t maxTimeUs = 0;
-static volatile uint32_t overrunCount = 0;
-
-// The time "budget" for processing one audio block (in microseconds).
-// If audioCallback takes longer than this, we get dropped frames.
-// Calculation: (Samples / Sample Rate) * 1,000,000 microseconds
-static const uint32_t blockBudgetUs =
-    (uint32_t)((AUDIO_BLOCK_SIZE * 1000000ULL) / SAMPLE_RATE);
-} // namespace AudioEngine
-
 // ─── DMA Interrupt Callbacks ────────────────────────────────────────────────
 //
 // The HAL calls these when DMA reaches the halfway point and the end of the
@@ -73,33 +56,11 @@ static const uint32_t blockBudgetUs =
 // would prevent the HAL from finding these functions.
 
 /**
- * Common timing wrapper for the audio callback using DWT (Cycle Counter).
- * DWT is faster and more reliable than micros() inside high-priority ISRs.
- */
-static void runTimedCallback(int16_t *buffer, uint16_t length) {
-  uint32_t start = DWT->CYCCNT;
-  audioCallback(buffer, length);
-  uint32_t durationCycles = DWT->CYCCNT - start;
-
-  // Convert cycles to microseconds: (cycles * 1,000,000) / CPU_FREQ
-  uint32_t durationUs =
-      (uint32_t)((uint64_t)durationCycles * 1000000 / SystemCoreClock);
-
-  AudioEngine::lastTimeUs = durationUs;
-  if (durationUs > AudioEngine::maxTimeUs) {
-    AudioEngine::maxTimeUs = durationUs;
-  }
-  if (durationUs > AudioEngine::blockBudgetUs) {
-    AudioEngine::overrunCount++;
-  }
-}
-
-/**
  * Called when DMA finishes sending the FIRST half of the buffer.
  * We fill the first half with new samples while the second half plays.
  */
 extern "C" void HAL_I2S_TxHalfCpltCallback(I2S_HandleTypeDef *hi2s) {
-  runTimedCallback(dmaBuffer, AUDIO_BLOCK_SIZE * 2);
+  audioCallback(dmaBuffer, AUDIO_BLOCK_SIZE * 2);
 }
 
 /**
@@ -107,7 +68,7 @@ extern "C" void HAL_I2S_TxHalfCpltCallback(I2S_HandleTypeDef *hi2s) {
  * We fill the second half with new samples while the first half plays.
  */
 extern "C" void HAL_I2S_TxCpltCallback(I2S_HandleTypeDef *hi2s) {
-  runTimedCallback(dmaBuffer + AUDIO_BLOCK_SIZE * 2, AUDIO_BLOCK_SIZE * 2);
+  audioCallback(dmaBuffer + AUDIO_BLOCK_SIZE * 2, AUDIO_BLOCK_SIZE * 2);
 }
 
 /**
@@ -186,28 +147,12 @@ void begin() {
   __HAL_LINKDMA(&hi2s2, hdmatx, hdma_i2s2_tx);
 
   // ── Step 5: Enable DMA interrupt ───────────────────────────────────
-  // Set priority to 5 (lower priority) to give USB room.
-  HAL_NVIC_SetPriority(DMA1_Stream4_IRQn, 5, 0);
+  HAL_NVIC_SetPriority(DMA1_Stream4_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA1_Stream4_IRQn);
 
-  // ── Step 6: Initialize DWT Cycle Counter ───────────────────────────
-  // Essential for high-precision timing without interrupts.
-  CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
-  DWT->CYCCNT = 0;
-  DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
-
-  // ── Step 7: Start DMA playback ─────────────────────────────────────
+  // ── Step 6: Start DMA playback ─────────────────────────────────────
   memset(dmaBuffer, 0, sizeof(dmaBuffer));
   HAL_I2S_Transmit_DMA(&hi2s2, (uint16_t *)dmaBuffer, AUDIO_BLOCK_SIZE * 2 * 2);
-}
-
-PerformanceStats getStats() {
-  PerformanceStats stats;
-  stats.lastExecutionTimeUs = lastTimeUs;
-  stats.maxExecutionTimeUs = maxTimeUs;
-  stats.budgetUs = blockBudgetUs;
-  stats.overruns = overrunCount;
-  return stats;
 }
 
 } // namespace AudioEngine

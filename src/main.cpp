@@ -41,29 +41,7 @@ LFO delayLFO;
 LFO delayFeedbackLFO;
 
 void audioCallback(int16_t *buffer, uint16_t length) {
-  // We'll update the heavy modulations (LFOs, Filters) every 16 samples
-  // instead of every sample to save CPU. This is "control rate" processing.
-  static uint16_t kCounter = 0;
-  static float lfotime, dlfo, delay_fb, cutoff, noiseCutoff;
-
   for (uint16_t i = 0; i < length; i += 2) {
-
-    // ─── Control Rate Processing (k-rate) ───────────────────
-    if (kCounter % 16 == 0) {
-      lfotime = filterLFO.process();
-      dlfo = delayLFO.process();
-      delay_fb = mapf(delayFeedbackLFO.process(), -1.0f, 1.0f, 0.2f, 0.8f);
-      cutoff = mapf(lfotime, -1.0f, 1.0f, 500.0f, 2000.0f);
-      noiseCutoff = mapf(lfotime, -1.0f, 1.0f, 800.0f, 1000.0f);
-
-      // Apply k-rate values to filters
-      filter1.setFrequency(cutoff);
-      filter2.setFrequency(mapf(lfotime, -1.0f, 1.0f, 400.0f, 500.0f));
-      noise_filter.setFrequency(noiseCutoff);
-    }
-    kCounter++;
-
-    // ─── Audio Rate Processing (a-rate) ─────────────────────
 
     // On each clock tick, advance to the next arpeggio note
     if (clock.process()) {
@@ -71,43 +49,49 @@ void audioCallback(int16_t *buffer, uint16_t length) {
         int step = clock.getTick() % arpLen;
         osc.setFrequency(midiToFreq(arpeggio[step]));
         env.reset();
-        env.trigger();
+        env.trigger(); // Percussive: auto-releases after attack
       }
+
       bass_osc.setFrequency(midiToFreq(arpeggio[clock.getTick() % arpLen]) * 2);
     }
 
-    // Process generators
+    float lfotime = filterLFO.process();
+
     float noise = pink_noise.process() * 0.1f;
+    noise_filter.setFrequency(mapf(lfotime, -1.0f, 1.0f, 800.0f, 1000.0f));
     noise_filter.process(noise);
     noise = noise_filter.bandpass();
 
-    // Primary oscillators
-    float envVal = env.process();
-    float sample = (osc.process() * envVal) * 0.1f;
+    // saw oscillator shaped by the envelope
+    float sample = (osc.process() * env.process()) * 0.1f;
 
+    filter2.setFrequency(mapf(lfotime, -1.0f, 1.0f, 400.0f, 500.0f));
     filter2.process(bass_osc.process());
-    sample += filter2.lowpass() * 0.08f;
-    sample += noise;
 
-    // Main filter
+    // add bass
+    sample = sample + filter2.lowpass() * 0.08f;
+    // add noise
+    sample = sample + noise;
+
+    float cutoff = mapf(lfotime, -1.0f, 1.0f, 500.0f, 2000.0f);
+    filter1.setFrequency(cutoff);
     filter1.process(sample);
     sample = filter1.lowpass();
 
-    // Delay with LFO modulation
+    float dlfo = delayLFO.process();
+    float delay_fb = mapf(delayFeedbackLFO.process(), -1.0f, 1.0f, 0.2f, 0.8f);
     float delayed = delay1.read(mapf(dlfo, -1.0f, 1.0f, 8000.0f, 8100.0f));
     delay1.write(sample + delayed * delay_fb);
 
-    float out = (sample * 0.6f) + (delayed * 0.25f);
+    float out = (sample * 0.6) + (delayed * 0.25);
 
-    // Final output conversion
-    int16_t s = (int16_t)(softclip(out, 1.0f) * 32000.0f);
+    int16_t s = (int16_t)(softclip(out, 1.0) * 32000.0f);
     buffer[i] = s;
     buffer[i + 1] = s;
   }
 }
 
 void setup() {
-  Serial.begin(115200);
   bass_osc.setWaveform(Waveform::TRIANGLE);
   bass_osc.setAmplitude(1.0f);
   bass_osc.setFrequency(midiToFreq(NOTE_C6 + 2));
@@ -126,23 +110,4 @@ void setup() {
   AudioEngine::begin();
 }
 
-void loop() {
-  static uint32_t lastReport = 0;
-  if (millis() - lastReport > 1000) {
-    auto stats = AudioEngine::getStats();
-
-    // Calculate CPU Load percentage using integer math to avoid float printf
-    // crash
-    uint32_t load = (stats.lastExecutionTimeUs * 100) / stats.budgetUs;
-    uint32_t peak = (stats.maxExecutionTimeUs * 100) / stats.budgetUs;
-
-    Serial.print("CPU Load: ");
-    Serial.print(load);
-    Serial.print("% (Peak: ");
-    Serial.print(peak);
-    Serial.print("%) | Overruns: ");
-    Serial.println(stats.overruns);
-
-    lastReport = millis();
-  }
-}
+void loop() { delay(10); }
