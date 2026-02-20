@@ -15,15 +15,15 @@ PinkNoise pink_noise(69);
 Oscillator bass_osc;
 Oscillator osc;
 Envelope env;
-TempoClock clock(88.0f, 2); // 140 BPM, eighth notes
+TempoClock clock(72.0f, 2); // 140 BPM, eighth notes
 
-// D major arpeggio: D4, F#4, A4, D5
+// japanese In scale
 const uint8_t arpeggio[] = {
     NOTE_C4 + 2,  // D4  (MIDI 62)
-    NOTE_C4 + 4,  // E4
-    NOTE_C4 + 6,  // F#4 (MIDI 66)
+    NOTE_C4 + 4,  // Eb4
+    NOTE_C4 + 6,  // G4
     NOTE_C4 + 9,  // A4  (MIDI 69)
-    NOTE_C4 + 11, // B4
+    NOTE_C4 + 11, // Bb4
     NOTE_C5 + 2   // D5  (MIDI 74)
 };
 const int arpLen = 6;
@@ -45,66 +45,68 @@ void audioCallback(int16_t *buffer, uint16_t length) {
 
     // On each clock tick, advance to the next arpeggio note
     if (clock.process()) {
-      if (rng.nextFloat() > 0.8) {
+      if (rng.nextFloat() > 0.5) {
         int step = clock.getTick() % arpLen;
         osc.setFrequency(midiToFreq(arpeggio[step]));
         env.reset();
         env.trigger(); // Percussive: auto-releases after attack
       }
+
+      bass_osc.setFrequency(midiToFreq(arpeggio[clock.getTick() % arpLen]) * 2);
     }
 
     float lfotime = filterLFO.process();
 
-    float noise = pink_noise.process() * 0.3f;
+    float noise = pink_noise.process() * 0.1f;
     noise_filter.setFrequency(mapf(lfotime, -1.0f, 1.0f, 800.0f, 1000.0f));
     noise_filter.process(noise);
-    noise = noise_filter.lowpass();
+    noise = noise_filter.bandpass();
 
     // saw oscillator shaped by the envelope
-    float sample = osc.process() * env.process() * 0.3f;
+    float sample = (osc.process() * env.process()) * 0.1f;
 
     filter2.setFrequency(mapf(lfotime, -1.0f, 1.0f, 400.0f, 500.0f));
     filter2.process(bass_osc.process());
 
     // add bass
-    sample = sample + filter2.lowpass() * 0.05f;
+    sample = sample + filter2.lowpass() * 0.08f;
+    // add noise
     sample = sample + noise;
 
-    float cutoff = mapf(lfotime, -1.0f, 1.0f, 600.0f, 2000.0f);
+    float cutoff = mapf(lfotime, -1.0f, 1.0f, 500.0f, 2000.0f);
     filter1.setFrequency(cutoff);
     filter1.process(sample);
     sample = filter1.lowpass();
 
     float dlfo = delayLFO.process();
-    float delay_fb = mapf(delayFeedbackLFO.process(), -1.0f, 1.0f, 0.2f, 0.09f);
+    float delay_fb = mapf(delayFeedbackLFO.process(), -1.0f, 1.0f, 0.2f, 0.8f);
     float delayed = delay1.read(mapf(dlfo, -1.0f, 1.0f, 8000.0f, 8100.0f));
-    delay1.write(sample + delayed * 0.8f);
+    delay1.write(sample + delayed * delay_fb);
 
-    float out = (sample * 0.6) + (delayed * delay_fb);
+    float out = (sample * 0.6) + (delayed * 0.25);
 
-    int16_t s = (int16_t)(softclip(out, 1.0f) * 32000.0f);
+    int16_t s = (int16_t)(softclip(out, 1.0) * 32000.0f);
     buffer[i] = s;
     buffer[i + 1] = s;
   }
 }
 
 void setup() {
-  bass_osc.setWaveform(Waveform::SAW);
+  bass_osc.setWaveform(Waveform::TRIANGLE);
   bass_osc.setAmplitude(1.0f);
-  bass_osc.setFrequency(midiToFreq(NOTE_C2 + 2));
-  osc.setWaveform(Waveform::SAW);
+  bass_osc.setFrequency(midiToFreq(NOTE_C6 + 2));
+  osc.setWaveform(Waveform::TRIANGLE);
   osc.setAmplitude(1.0f);
-  env.setAttack(0.02f);
-  env.setRelease(0.8f);
+  env.setAttack(0.05f);
+  env.setRelease(0.2f);
   filter1.setFrequency(500.0f);
   filter2.setFrequency(100.0f);
-  filter2.setResonance(0.6f);
   filterLFO.setWaveform(Waveform::SINE);
-  filterLFO.setFrequency(0.125f);
+  filterLFO.setFrequency(0.025f);
   delayLFO.setWaveform(Waveform::SINE);
   delayLFO.setFrequency(0.5f);
-  delayFeedbackLFO.setWaveform(Waveform::SAW);
-  delayLFO.setFrequency(0.2f);
+  delayFeedbackLFO.setWaveform(Waveform::SINE);
+  delayFeedbackLFO.setFrequency(0.025f);
   AudioEngine::begin();
 }
 
