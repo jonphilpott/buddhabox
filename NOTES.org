@@ -1,0 +1,26 @@
+* Buddha Box
+** Hardware
+*** Aliexpress links for blackpill F411 boards:
+- https://www.aliexpress.us/item/3256801450301524.html? (more qty available)
+- https://www.aliexpress.us/item/3256801269871873.html (only 1 but $1)
+
+
+*** links for DACs:
+- https://www.aliexpress.us/item/3256806595350760.html
+- https://www.aliexpress.us/item/3256808954356134.html?
+
+** Ambient Box Plan
+
+the "big" plan i sketched out in FreeForm is not going to work. we
+quickly run into CPU overruns. so I need to find a way to use a
+minimal number of components but with enough evolving parts to keep it
+fresh. I think keeping it sparse with a two filter chain into a single
+delay may work. evolve by changing the LFO parameters and maybe the
+tempo, scale, etc.
+
+it doesnt have to be all encompansing, just an extension on the
+classical noise box. the RP2350 version can be better. the premium
+version should be a pi zero with puredata and foam panel. just need an
+elegant solution for an ugly ass powercable.
+
+

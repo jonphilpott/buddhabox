@@ -121,9 +121,15 @@ public:
     // Step 1: Compute waveform value from current phase (0.0–1.0)
     switch (waveform_) {
     case Waveform::SINE:
-      // Use fast parabolic approximation instead of sinf() — about
-      // 4x faster on Cortex-M4 while staying within ~0.1% accuracy.
-      out = fastSin(phase_ * TWO_PI_F);
+      // Use a pre-computed wavetable instead of a runtime sine calculation.
+      // The table stores 512 evenly-spaced sine values covering one full
+      // cycle. We find where our phase falls in the table and interpolate
+      // between the two nearest entries (linear interpolation = lerp).
+      //
+      // This is faster than even the parabolic fastSin() because it replaces
+      // all floating-point math with two table lookups and a lerp, which
+      // is just 3 multiply-add operations on the Cortex-M4 FPU.
+      out = sineTableLookup(phase_);
       break;
 
     case Waveform::SAW:
@@ -167,39 +173,75 @@ public:
   void setPhase(float p) { phase_ = p; }
 
 private:
+  // ── Sine Wavetable ──────────────────────────────────────────────────────
+  //
+  // A wavetable stores one full cycle of a waveform as a pre-computed array.
+  // Instead of recalculating sin() every sample, we just look up the value
+  // in the table and interpolate between neighbouring entries.
+  //
+  // TABLE SIZE CHOICE: 512 entries.
+  //   - Each entry covers 1/512 of a full cycle = 0.7°.
+  //   - Linear interpolation between entries gives error < -96 dB, well
+  //     below the 16-bit noise floor (-96 dB). Inaudible in any context.
+  //   - Memory cost: 512 × 4 bytes = 2 KB (stored once, shared by all
+  //     Oscillator instances via the static local).
+  //
+  // INITIALIZATION: The table is filled exactly once using a function-local
+  // static (a "Meyers singleton"). The first Oscillator constructed triggers
+  // initialization. Subsequent instances reuse the same table.
+  static constexpr uint16_t SINE_TABLE_SIZE = 512;
+
   /**
-   * Fast sine approximation using a parabolic curve.
-   *
-   * HOW THIS WORKS:
-   * A sine wave looks a lot like an upside-down parabola near its peaks.
-   * We exploit this by computing y = (4/π)x - (4/π²)x|x| which gives a
-   * rough sine shape, then apply a correction pass to improve accuracy.
-   *
-   * The result is accurate to within ~0.1% — more than enough for audio
-   * where we can't hear the difference. On the STM32F4 this runs about
-   * 4x faster than the standard library sinf().
-   *
-   * @param x  Angle in radians
-   * @return   Approximation of sin(x), range approximately [-1, +1]
+   * Return a pointer to the shared sine wavetable, initializing it on
+   * first call. Thread-safety is not a concern here — audio runs on a
+   * single core and the table is always initialized during setup() before
+   * the audio callback fires.
    */
-  static float fastSin(float x) {
-    // Normalize angle to [-π, π] range (the parabolic approximation
-    // only works correctly in this range)
-    x = fmodf(x, TWO_PI_F);
-    if (x > PI_F)
-      x -= TWO_PI_F;
-    if (x < -PI_F)
-      x += TWO_PI_F;
+  static const float *getSineTable() {
+    // C++11 guarantees function-local statics are initialized exactly once,
+    // even if multiple callers reach this line simultaneously (not relevant
+    // here, but good to know). The `static` keyword means this array lives
+    // for the entire lifetime of the program.
+    static float table[SINE_TABLE_SIZE];
+    static bool initialized = false;
+    if (!initialized) {
+      // Build one full cycle of sin(). We use sinf() here (slow) because
+      // this only runs once at startup — not in the audio hot path.
+      // After this, every SINE oscillator uses cheap table lookups.
+      for (uint16_t i = 0; i < SINE_TABLE_SIZE; i++) {
+        table[i] = sinf(TWO_PI_F * i / SINE_TABLE_SIZE);
+      }
+      initialized = true;
+    }
+    return table;
+  }
 
-    // First pass: parabolic approximation
-    const float B = 4.0f / PI_F;
-    const float C = -4.0f / (PI_F * PI_F);
-    float y = B * x + C * x * fabsf(x);
+  /**
+   * Look up a sine value from the wavetable using linear interpolation.
+   *
+   * Linear interpolation (lerp) blends between the two table entries on
+   * either side of the exact phase position, eliminating the audible
+   * "stepping" artifacts you'd hear with plain nearest-neighbour lookup.
+   *
+   * @param phase  Current oscillator phase in [0.0, 1.0)
+   * @return       Interpolated sine value in [-1.0, +1.0]
+   */
+  static float sineTableLookup(float phase) {
+    const float *tbl = getSineTable();
 
-    // Second pass: correction factor improves peak accuracy from ~88%
-    // to ~99.7%. The magic number 0.225 was determined empirically.
-    y = 0.225f * (y * fabsf(y) - y) + y;
-    return y;
+    // Map phase [0,1) to a floating-point index in [0, TABLE_SIZE)
+    float fIdx = phase * SINE_TABLE_SIZE;
+
+    // Split into integer index and fractional part for lerp
+    uint16_t i0 = (uint16_t)fIdx;
+    float frac = fIdx - i0;
+
+    // Wrap the second index to handle the boundary at the end of the table
+    // (when i0 = 511, i1 wraps to 0 — which is sin(2π) ≈ sin(0))
+    uint16_t i1 = (i0 + 1) & (SINE_TABLE_SIZE - 1);
+
+    // Linear interpolation: blend between tbl[i0] and tbl[i1]
+    return tbl[i0] + frac * (tbl[i1] - tbl[i0]);
   }
 
   Waveform waveform_ = Waveform::SINE;

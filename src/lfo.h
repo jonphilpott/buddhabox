@@ -64,6 +64,45 @@ public:
   void setFrequency(float hz) { phaseInc_ = hz / SAMPLE_RATE; }
 
   /**
+   * Set the control-rate divider — run the LFO at a fraction of audio rate.
+   *
+   * By default the LFO computes a new output value every audio sample
+   * (divider = 1). For typical ambient LFOs (0.01–5 Hz), this is massive
+   * overkill — the waveform changes so slowly that holding the same value
+   * for 64 or even 256 consecutive samples is completely imperceptible.
+   *
+   * WHY THIS MATTERS:
+   * The LFO output is often fed into SVFilter::setFrequency(), which calls
+   * sinf() to recompute a filter coefficient. By downsampling the LFO,
+   * you reduce those expensive sinf() calls by the same factor. For the
+   * three LFOs in a typical patch, divider=64 cuts sinf() calls from
+   * 3×44100/sec to 3×689/sec — a 64× reduction in filter coefficient work.
+   *
+   * ACCURACY:
+   * The LFO's internal phase still advances by the correct amount each
+   * time it fires (phaseInc_ × divider_), so the LFO frequency stays
+   * exact regardless of divider. The only effect is that the output
+   * value is held constant between updates — a form of sample-and-hold
+   * that is inaudible for slow modulation sources.
+   *
+   * PRACTICAL GUIDE:
+   *   divider = 1    → per-sample (default, maximum fidelity)
+   *   divider = 16   → ~2756 Hz control rate (fine for vibrato up to ~5 Hz)
+   *   divider = 64   → ~689 Hz control rate (ideal for filter/delay LFOs)
+   *   divider = 256  → ~172 Hz control rate (fine for LFOs below ~0.5 Hz)
+   *
+   * @param n  Number of audio samples between LFO updates (1 = every sample)
+   *
+   * Example:
+   *   lfo.setFrequency(0.025f);  // Very slow: 40-second cycle
+   *   lfo.setDivider(256);       // Compute only 172 times/sec — plenty
+   */
+  void setDivider(uint32_t n) {
+    divider_ = (n < 1) ? 1 : n;
+    counter_ = 0; // Recompute immediately on next process() call
+  }
+
+  /**
    * Set the LFO waveform shape.
    * @param w  One of: Waveform::SINE, SAW, SQUARE, TRIANGLE
    *
@@ -78,6 +117,10 @@ public:
    * always in the range [-1.0, +1.0] — you scale it to whatever
    * parameter range you need using mapf() or simple multiplication.
    *
+   * If setDivider(n) has been called, the LFO recomputes only once every
+   * n samples and holds the cached value in between. This is transparent
+   * to the caller — you still call process() every sample.
+   *
    * @return  Current LFO value in [-1.0, +1.0]
    *
    * Example:
@@ -86,31 +129,48 @@ public:
    *   float feedback = mapf(mod, -1.0f, 1.0f, 0.2f, 0.8f);
    */
   float process() {
-    float out = 0.0f;
+    // counter_ counts down to zero. When it hits zero we recompute the
+    // waveform, advance the phase, and reload the counter. In between,
+    // we simply return the cached value from the last computation.
+    if (counter_ == 0) {
+      // ── Compute waveform value at current phase ──────────────────────
+      // Same waveform math as Oscillator — see oscillator.h for detailed
+      // explanations of each shape's computation.
+      switch (waveform_) {
+      case Waveform::SINE:
+        // fastSin() is defined in dsp_common.h — shared with Oscillator.
+        cached_ = fastSin(phase_ * TWO_PI_F);
+        break;
+      case Waveform::SAW:
+        cached_ = 2.0f * phase_ - 1.0f;
+        break;
+      case Waveform::SQUARE:
+        cached_ = phase_ < 0.5f ? 1.0f : -1.0f;
+        break;
+      case Waveform::TRIANGLE:
+        cached_ =
+            phase_ < 0.5f ? 4.0f * phase_ - 1.0f : 3.0f - 4.0f * phase_;
+        break;
+      }
 
-    // Same waveform math as Oscillator — see oscillator.h for detailed
-    // explanations of each shape's computation.
-    switch (waveform_) {
-    case Waveform::SINE:
-      out = fastSin(phase_ * TWO_PI_F);
-      break;
-    case Waveform::SAW:
-      out = 2.0f * phase_ - 1.0f;
-      break;
-    case Waveform::SQUARE:
-      out = phase_ < 0.5f ? 1.0f : -1.0f;
-      break;
-    case Waveform::TRIANGLE:
-      out = phase_ < 0.5f ? 4.0f * phase_ - 1.0f : 3.0f - 4.0f * phase_;
-      break;
+      // ── Advance phase by divider_ steps at once ───────────────────────
+      // When divider_ = 1 this is identical to the normal per-sample
+      // advance. When divider_ = 64, we jump forward 64 steps in one shot
+      // — the phase stays perfectly accurate since we're just multiplying
+      // the per-sample increment by the number of samples we skipped.
+      phase_ += phaseInc_ * (float)divider_;
+      // Use while in case divider_ is large enough to advance more than
+      // one full cycle in a single step (unusual but safe to handle).
+      while (phase_ >= 1.0f)
+        phase_ -= 1.0f;
+
+      // Reload the counter for the next divider_ - 1 idle samples
+      counter_ = divider_ - 1;
+    } else {
+      counter_--;
     }
 
-    // Advance and wrap phase (see Oscillator::process() for explanation)
-    phase_ += phaseInc_;
-    if (phase_ >= 1.0f)
-      phase_ -= 1.0f;
-
-    return out;
+    return cached_;
   }
 
   /** Get the current phase (0.0–1.0). */
@@ -123,30 +183,30 @@ public:
    * Reset phase to zero (beginning of cycle).
    * Useful for syncing the LFO to a tempo clock on each beat.
    *
+   * Also resets the divider counter so the next process() call
+   * immediately recomputes at phase 0, rather than returning a
+   * stale cached value from before the reset.
+   *
    * Example:
    *   if (clock.process()) {  // On each beat...
    *       lfo.reset();        // Restart the LFO cycle
    *   }
    */
-  void reset() { phase_ = 0.0f; }
-
-private:
-  // Same fast sine approximation as Oscillator (duplicated here so LFO
-  // stays self-contained — the compiler will inline it anyway)
-  static float fastSin(float x) {
-    x = fmodf(x, TWO_PI_F);
-    if (x > PI_F)
-      x -= TWO_PI_F;
-    if (x < -PI_F)
-      x += TWO_PI_F;
-    const float B = 4.0f / PI_F;
-    const float C = -4.0f / (PI_F * PI_F);
-    float y = B * x + C * x * fabsf(x);
-    y = 0.225f * (y * fabsf(y) - y) + y;
-    return y;
+  void reset() {
+    phase_ = 0.0f;
+    counter_ = 0; // Force recompute on next process() call
   }
 
+private:
   Waveform waveform_ = Waveform::SINE;
   float phase_ = 0.0f;
   float phaseInc_ = 1.0f / SAMPLE_RATE; // Default: 1 Hz
+
+  // ── Control-rate divider state ───────────────────────────────────────────
+  // divider_: how many audio samples between waveform recomputations (1 = off)
+  // counter_: counts down from divider_-1 to 0; at 0 we recompute
+  // cached_:  the last computed waveform value, returned on idle samples
+  uint32_t divider_ = 1;
+  uint32_t counter_ = 0;
+  float cached_ = 0.0f;
 };

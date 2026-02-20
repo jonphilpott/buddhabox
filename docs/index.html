@@ -349,6 +349,7 @@
   <a href="#quickstart">Quick Start</a>
   <a href="#hardware">Hardware</a>
   <a href="#enclosure">Enclosure Guide</a>
+  <a href="#builds">Build Designs</a>
   <a href="#power">Power Requirements</a>
 </nav>
 
@@ -422,6 +423,10 @@
   <tr>
     <td><strong>Composable</strong></td>
     <td>Any module's output can feed into any other module's input. An LFO can modulate a filter, which filters an oscillator, which is shaped by an envelope.</td>
+  </tr>
+  <tr>
+    <td><strong>Control-rate separation</strong></td>
+    <td>Slowly-changing modulators (LFOs, envelopes) can run at a fraction of audio rate via <code>LFO::setDivider(n)</code>. Combined with lazy coefficient caching in <code>SVFilter::setFrequency()</code>, this reduces the dominant per-sample cost (transcendental math) by up to 64&times;.</td>
   </tr>
 </table>
 
@@ -512,6 +517,13 @@
   <div class="method-returns">Returns: soft-clipped sample in approximately (-1.0, +1.0)</div>
 </div>
 
+<div class="method-block">
+  <div class="method-sig">float fastSin(float x)</div>
+  <div class="method-desc">Fast sine approximation using a two-pass parabolic curve. Accurate to within ~0.1% — inaudible in audio contexts. Approximately 4&times; faster than <code>sinf()</code> on Cortex-M4. Used internally by <code>LFO</code> for its waveform computation. <strong>Input must be in [0, 2&pi;)</strong> — the caller is expected to maintain a phase accumulator in this range, which avoids a costly <code>fmodf()</code> call inside the function.</div>
+  <div class="method-param"><code>x</code> &mdash; <code>float</code> &mdash; angle in radians, expected in [0, 2&pi;)</div>
+  <div class="method-returns">Returns: <code>float</code> &mdash; approximate sin(x) in approximately [-1.0, +1.0]</div>
+</div>
+
 <pre><code><span class="comment">// Gentle warmth on a mix</span>
 <span class="type">float</span> out = <span class="func">softclip</span>(osc.<span class="func">process</span>() + noise.<span class="func">process</span>(), <span class="number">2.0f</span>);
 
@@ -530,7 +542,10 @@
     Audio-rate waveform generator using the phase accumulator pattern.
     A phase variable ramps 0&#x2192;1 at a rate determined by frequency, and the
     current phase is transformed into the selected waveform shape.
-    Sine uses a fast parabolic approximation (~4x faster than <code>sinf()</code>).
+    Sine uses a <strong>512-entry pre-computed wavetable</strong> with linear interpolation
+    (shared across all <code>Oscillator</code> instances, initialized once at startup).
+    SAW, SQUARE, and TRIANGLE use direct math formulas &mdash; they are already
+    optimal at 1&ndash;3 float operations each.
   </p>
 
   <h4>Waveform Enum</h4>
@@ -733,6 +748,12 @@ filter.<span class="func">process</span>(noise.<span class="func">process</span>
   <p>
     Low Frequency Oscillator for modulating parameters over time (filter cutoff, amplitude, pitch, delay time). Same waveform math as Oscillator but intended for sub-audio rates (0.01&ndash;20 Hz). Always outputs -1.0 to +1.0 (no amplitude parameter) &mdash; scale the output to the target range using <code>mapf()</code>.
   </p>
+  <p>
+    For slow LFOs (&lt;5 Hz), use <code>setDivider(n)</code> to run the LFO at a fraction of audio rate.
+    This reduces the LFO's CPU cost by <em>n</em>&times; and &mdash; because the held value is fed into
+    <code>SVFilter::setFrequency()</code> &mdash; also eliminates redundant <code>sinf()</code> calls in the filter,
+    which is the dominant cost of LFO-modulated filter sweeps.
+  </p>
 
   <h4>Instantiation</h4>
   <pre><code><span class="type">LFO</span> lfo;  <span class="comment">// Default: 1 Hz sine</span></code></pre>
@@ -752,14 +773,33 @@ filter.<span class="func">process</span>(noise.<span class="func">process</span>
   </div>
 
   <div class="method-block">
+    <div class="method-sig">void setDivider(uint32_t n)</div>
+    <div class="method-desc">
+      Run the LFO at 1/<em>n</em> of audio rate (control-rate downsampling). The LFO recomputes
+      its waveform only once every <em>n</em> audio samples, holding the cached value in between.
+      The internal phase still advances by the correct amount per fire, so LFO frequency stays exact.
+      Inaudible for LFOs below ~5 Hz with <code>n</code> up to 256.
+      <br><br>
+      <strong>Why this matters:</strong> LFOs typically drive <code>SVFilter::setFrequency()</code>,
+      which calls <code>sinf()</code> to recompute a coefficient. With <code>setDivider(64)</code>,
+      that <code>sinf()</code> cost drops 64&times;. Combined with SVFilter's frequency caching
+      (see below), per-sample filter updates become nearly free.
+    </div>
+    <div class="method-param"><code>n</code> &mdash; <code>uint32_t</code> &mdash; samples between recomputations. 1 = every sample (default). Practical values:</div>
+    <div class="method-param" style="margin-left:2rem;">16 = ~2756 Hz control rate &mdash; fine for vibrato up to ~5 Hz</div>
+    <div class="method-param" style="margin-left:2rem;">64 = ~689 Hz control rate &mdash; recommended for filter/delay LFOs</div>
+    <div class="method-param" style="margin-left:2rem;">256 = ~172 Hz control rate &mdash; fine for LFOs below ~0.5 Hz</div>
+  </div>
+
+  <div class="method-block">
     <div class="method-sig">float process()</div>
-    <div class="method-desc">Generate the next LFO sample. Call once per audio sample.</div>
+    <div class="method-desc">Generate the next LFO sample. Call once per audio sample. If a divider is set, returns the cached value on non-recompute samples &mdash; transparent to the caller.</div>
     <div class="method-returns">Returns: <code>float</code> in [-1.0, +1.0]</div>
   </div>
 
   <div class="method-block">
     <div class="method-sig">void reset()</div>
-    <div class="method-desc">Reset phase to zero. Useful for syncing LFO to a tempo clock.</div>
+    <div class="method-desc">Reset phase to zero and rearm the divider counter so the very next <code>process()</code> call recomputes at phase 0 (rather than returning a stale cached value). Useful for syncing LFO to a tempo clock.</div>
   </div>
 
   <div class="method-block">
@@ -775,12 +815,18 @@ filter.<span class="func">process</span>(noise.<span class="func">process</span>
 
 <pre><code><span class="type">LFO</span> filterSweep;
 filterSweep.<span class="func">setWaveform</span>(Waveform::TRIANGLE);
-filterSweep.<span class="func">setFrequency</span>(<span class="number">0.1f</span>);  <span class="comment">// One cycle every 10 seconds</span>
+filterSweep.<span class="func">setFrequency</span>(<span class="number">0.1f</span>);   <span class="comment">// One cycle every 10 seconds</span>
+filterSweep.<span class="func">setDivider</span>(<span class="number">64</span>);      <span class="comment">// Recompute at ~689 Hz — imperceptible at 0.1 Hz</span>
 
-<span class="comment">// In audio callback:</span>
+<span class="comment">// In audio callback (unchanged — setDivider is transparent to the caller):</span>
 <span class="type">float</span> mod = filterSweep.<span class="func">process</span>();
 <span class="type">float</span> cutoff = <span class="func">mapf</span>(mod, -<span class="number">1.0f</span>, <span class="number">1.0f</span>, <span class="number">200.0f</span>, <span class="number">3000.0f</span>);
-filter.<span class="func">setFrequency</span>(cutoff);</code></pre>
+filter.<span class="func">setFrequency</span>(cutoff);  <span class="comment">// SVFilter caches this; sinf() only runs when cutoff changes</span>
+
+<span class="comment">// Sync LFO to tempo (reset() also rearmes the divider counter):</span>
+<span class="keyword">if</span> (clock.<span class="func">process</span>()) {
+    filterSweep.<span class="func">reset</span>();  <span class="comment">// Restart from phase 0 on each beat</span>
+}</code></pre>
 
 <!-- ── Envelope ──────────────────────────────────────────────────────────── -->
 <h3>Envelope <code>envelope.h</code></h3>
@@ -879,7 +925,9 @@ env.<span class="func">gate</span>(<span class="keyword">false</span>);  <span c
 
   <div class="method-block">
     <div class="method-sig">void setFrequency(float hz)</div>
-    <div class="method-desc">Set the cutoff frequency.</div>
+    <div class="method-desc">
+      Set the cutoff frequency. Internally calls <code>sinf()</code> to recompute the filter coefficient &mdash; but only when the frequency has actually changed. Repeated calls with the same value (e.g., from a downsampled LFO holding its output for 64 samples) are detected by exact float comparison and return immediately with no computation. This makes it safe to call <code>setFrequency()</code> every audio sample without paying the <code>sinf()</code> cost on idle cycles.
+    </div>
     <div class="method-param"><code>hz</code> &mdash; <code>float</code> &mdash; cutoff in Hertz. 20 = very dark, 1000 = warm, 5000 = bright. Clamped to [20, SAMPLE_RATE/4] for stability.</div>
   </div>
 
@@ -1455,7 +1503,7 @@ Oscillator (sine) &#x00D7; Envelope &#x2192; Output</div>
 }
 
 <span class="type">void</span> <span class="func">setup</span>() {
-    osc.<span class="func">setWaveform</span>(Waveform::SINE);
+    osc.<span class="func">setWaveform</span>(Waveform::SINE);  <span class="comment">// SINE uses the 512-entry wavetable</span>
     osc.<span class="func">setAmplitude</span>(<span class="number">1.0f</span>);
     env.<span class="func">setAttack</span>(<span class="number">0.002f</span>);    <span class="comment">// 2 ms — sharp pluck</span>
     env.<span class="func">setRelease</span>(<span class="number">0.3f</span>);     <span class="comment">// 300 ms — bell-like decay</span>
@@ -1519,6 +1567,7 @@ PinkNoise 2 &#x2192; SVFilter (LP, swept) &#x2192; &#x256F;
     filterHigh.<span class="func">setResonance</span>(<span class="number">0.1f</span>);
     gustLFO.<span class="func">setWaveform</span>(Waveform::TRIANGLE);
     gustLFO.<span class="func">setFrequency</span>(<span class="number">0.07f</span>);
+    gustLFO.<span class="func">setDivider</span>(<span class="number">64</span>);   <span class="comment">// 0.07 Hz — run at ~689 Hz control rate</span>
     AudioEngine::<span class="func">begin</span>();
 }
 
@@ -1815,52 +1864,332 @@ on PA0, which the ADC reads as 0&#x2013;4095.</div>
 
 <h3>Optimal Acoustic Ratios</h3>
 <p>
-  To prevent "boxy" resonances, avoid the "Perfect Cube" where all dimensions are equal. Instead, use the <strong>Acoustic Ratio 1 : 1.25 : 1.6</strong>. This spreads internal standing waves across the spectrum, preventing energy "pile-up" at a single frequency.
+  To prevent "boxy" resonances, avoid a <strong>Perfect Cube</strong> (all dimensions equal) and avoid
+  simple integer ratios between dimensions (e.g., 1:1:2 or 1:2:2) — these cause multiple standing-wave
+  modes to stack on the same frequency. The commonly cited <strong>1 : 1.25 : 1.6</strong> ratio is a
+  reasonable starting point, but its origin is <em>room acoustics</em> (Volkman, 1942), not speaker
+  enclosure design. For a 0.75&thinsp;L box whose longest internal dimension is around 11&thinsp;cm,
+  the lowest-order standing wave occurs at approximately
+  343&thinsp;m/s &divide; (2 &times; 0.11&thinsp;m) &asymp; <strong>1560&thinsp;Hz</strong> — well
+  above the bass range where box tuning matters. At these enclosure sizes, the precise ratio values
+  have little audible effect; any non-equal, non-harmonic set of dimensions is adequate. The standing
+  waves that do form above 1&thinsp;kHz are far more effectively controlled by
+  <strong>interior wall damping</strong> (see below) than by dimensional ratios.
 </p>
 
 <h3>Internal Dimension Recommendations</h3>
-<p><em>Note: These are <strong>internal</strong> measurements. Add your material thickness (e.g., 6mm MDF or 1.6mm 3D print walls) to determine external size.</em></p>
+<p>
+  <em>Note: These are <strong>internal</strong> measurements. Add your material thickness to get external
+  size — e.g., 6&thinsp;mm per side for MDF, or 4&ndash;6&thinsp;mm per side for 3D print.
+  The volumes below are rough starting estimates only.</em>
+</p>
+<div class="note">
+  <strong>T/S Parameters:</strong> The correct sealed box volume depends on your driver's
+  <strong>V<sub>as</sub></strong> (acoustic compliance volume) and <strong>Q<sub>ts</sub></strong>
+  (total Q). Without measuring these, any volume recommendation is a rough guess.
+  The formula is: V<sub>b</sub> = V<sub>as</sub> / ((Q<sub>tc</sub> / Q<sub>ts</sub>)<sup>2</sup> &minus; 1),
+  where Q<sub>tc</sub>&nbsp;=&nbsp;0.707 gives a maximally flat Butterworth response.
+  For an unknown cheap 2&Prime; driver, V<sub>as</sub> is typically 0.2&ndash;0.5&thinsp;L, so
+  <strong>0.3&ndash;0.5&thinsp;L is a more conservative starting estimate</strong> than the 0.75&thinsp;L
+  below. A box that sounds boomy is too large (Q<sub>tc</sub> too low); one that sounds thin has
+  too-high Q<sub>tc</sub> or a naturally high F<sub>s</sub> driver. Stuffing lets you experiment
+  with effective volume before cutting final dimensions.
+</div>
 
 <table>
   <tr>
     <th>Speaker Diameter</th>
-    <th>Target Volume</th>
-    <th>Optimal Internal Dimensions (W x H x D)</th>
+    <th>Estimated Volume Range</th>
+    <th>Example Dimensions at 1:1.25:1.6 (W &times; H &times; D)</th>
   </tr>
   <tr>
-    <td>1.5" (40mm)</td>
-    <td>~0.35 Liters</td>
-    <td>5.5cm x 6.9cm x 8.8cm</td>
+    <td>1.5&Prime; (40mm)</td>
+    <td>0.2&ndash;0.4&thinsp;L</td>
+    <td>5.5cm &times; 6.9cm &times; 8.8cm &asymp; 0.35&thinsp;L</td>
   </tr>
   <tr>
-    <td>2.0" (50mm)</td>
-    <td>~0.75 Liters</td>
-    <td>7.1cm x 8.9cm x 11.4cm</td>
+    <td>2.0&Prime; (50mm)</td>
+    <td>0.3&ndash;0.6&thinsp;L</td>
+    <td>6.3cm &times; 7.9cm &times; 10.1cm &asymp; 0.50&thinsp;L</td>
   </tr>
   <tr>
-    <td>3.0" (75mm)</td>
-    <td>~1.6 Liters</td>
-    <td>9.3cm x 11.6cm x 14.9cm</td>
+    <td>3.0&Prime; (75mm)</td>
+    <td>0.8&ndash;1.6&thinsp;L</td>
+    <td>9.3cm &times; 11.6cm &times; 14.9cm &asymp; 1.6&thinsp;L</td>
   </tr>
 </table>
 
 <h3>Advanced Tuning Tips</h3>
 
 <ul>
-  <li><strong>Slanted Back Wall:</strong> If possible, tilt the rear wall by 5&ndash;10&deg;. This is the single most effective way to eliminate standing waves between the front and back of the box.</li>
-  <li><strong>Baffle Off-Centering:</strong> Don't mount the speaker exactly in the center of the front face. Shifting it slightly (e.g., 5mm left and 5mm up) smooths out the "baffle step" diffraction.</li>
-  <li><strong>Damping Material:</strong> Stuff the box loosely (about 50% full) with <strong>poly-fill</strong> or cotton. This "tricks" the speaker into seeing a box that is 15&ndash;20% larger than its physical size.</li>
-  <li><strong>Airtight Seal:</strong> 100% airtight is critical for sealed boxes. Use hot glue or silicone around the speaker rim and wire holes. Even a tiny air leak will ruin the bass response.</li>
+  <li>
+    <strong>Slanted Back Wall:</strong> Tilting the rear wall by 5&ndash;10&deg; disrupts the
+    parallel front/back surfaces that produce flutter echo. In larger enclosures (&gt;5&thinsp;L)
+    this is a meaningful improvement. For the sub-2&thinsp;L boxes here, the same standing waves
+    occur above 1.5&thinsp;kHz and are more cost-effectively addressed by lining the rear wall with
+    acoustic foam. Still worth doing if your geometry allows it.
+  </li>
+  <li>
+    <strong>Baffle Off-Centering:</strong> Don't mount the driver exactly in the center of the front
+    face. Shifting it 5&ndash;10&thinsp;mm off-center (both horizontally and vertically) spreads
+    diffraction artifacts from the baffle edges across a wider frequency range rather than
+    concentrating them at one frequency.
+  </li>
+  <li>
+    <strong>Interior Wall Damping (lining):</strong> Glue 5&ndash;10&thinsp;mm open-cell acoustic foam
+    or felt to all interior walls. This is the primary treatment for the mid/high-frequency standing
+    waves that form above ~1.5&thinsp;kHz inside these small enclosures. It works by acoustic
+    absorption — the porous surface converts reflected sound energy into heat. Do this first,
+    before stuffing.
+  </li>
+  <li>
+    <strong>Volume Stuffing:</strong> After lining the walls, loosely fill <strong>one-third to
+    one-half</strong> of the remaining air volume with poly-fill or Dacron batting. This works by a
+    completely different mechanism from wall damping: the fibres act as a thermal reservoir, slowing
+    heat exchange during compression and shifting the air's behaviour toward isothermal. The result
+    is a lower effective air-spring stiffness — acoustically equivalent to a larger box.
+    Poly-fill typically increases effective volume by <strong>20&ndash;30%</strong>; dense long-fibre
+    fiberglass batting can approach the theoretical ceiling of ~40%. Do not over-stuff — packing the
+    material too tightly reduces airflow and can actually increase low-frequency damping, which
+    counteracts the volume-increase benefit.
+  </li>
+  <li>
+    <strong>Airtight Seal:</strong> 100% airtight is critical for sealed boxes. The sealed air acts
+    as a spring; any leak bypasses it, softening bass and potentially causing rattles. Use hot glue
+    or silicone around the driver rim, wire pass-throughs, and all panel joints.
+  </li>
 </ul>
 
 <h3>Material Choice</h3>
 <ul>
-  <li><strong>Wood (MDF/Plywood):</strong> 6mm (1/4") is the sweet spot. Wood is naturally "deader" than plastic and produces the warmest tone for generative audio.</li>
-  <li><strong>3D Printed:</strong> Use at least 4 wall perimeters (1.6mm thickness). Thin walls will vibrate and rattle during low-frequency drones.</li>
+  <li>
+    <strong>Wood (MDF/Plywood):</strong> 6&thinsp;mm (1/4&Prime;) is a practical minimum for a
+    sub-1&thinsp;L box. MDF is preferred over plywood for acoustics — it is denser and more
+    homogeneous, which reduces panel resonance. Both are naturally more damping than plastic and
+    produce a warmer tone.
+  </li>
+  <li>
+    <strong>3D Printed:</strong> <strong>4 perimeters at a 0.4&thinsp;mm nozzle = 1.6&thinsp;mm,
+    which is too thin for an acoustic enclosure.</strong> Thin walls flex and rattle, acting like a
+    secondary speaker cone. Aim for <strong>4&ndash;6&thinsp;mm wall thickness</strong> (10&ndash;15
+    perimeters), plus <strong>20&ndash;40% gyroid or honeycomb infill</strong>. Gyroid infill is
+    preferred over rectilinear because it creates non-parallel internal surfaces that scatter
+    standing waves rather than reinforcing them. PLA is adequate and stiff; PETG is tougher and
+    slightly more damping but more flexible, which can allow wall vibration in thin sections — keep
+    walls thick if using PETG.
+  </li>
 </ul>
 
 <div class="tip">
-  <strong>Pro Tip:</strong> For extremely small enclosures (under 0.5L), consider using a <strong>Passive Radiator</strong> (a "fake" speaker cone with no magnet). It allows for deep bass response without the complexity of an air port.
+  <strong>Passive Radiators:</strong> A passive radiator (a speaker cone with no motor) can extend
+  bass response beyond what a sealed box achieves, and avoids the port-length problem that makes
+  bass-reflex designs impractical in small enclosures. They are used across a wide range of sizes,
+  from tiny Bluetooth speakers to large subwoofers.
+  <strong>However, they require deliberate tuning:</strong> the tuning frequency is set by the
+  passive radiator's moving mass and the enclosure volume
+  (F<sub>p</sub> = (1/2&pi;) &times; &radic;(K<sub>box</sub> / M<sub>pr</sub>)).
+  You adjust it by adding adhesive mass (putty, lead tape) to the passive radiator cone to lower
+  F<sub>p</sub>. Without matching it to your driver and target frequency, it will not perform
+  correctly — and without T/S parameters for the active driver, calculating the correct tuning is
+  an iterative process. Treat this as a weekend experimentation project, not a drop-in improvement.
+</div>
+
+<!-- ── Build Recommendations ──────────────────────────────────────────────── -->
+<h3 id="builds">Build Recommendations: 2&Prime; 4&thinsp;&Omega; 5&thinsp;W Drivers</h3>
+
+<p>
+  Two complete starting-point designs for the speakers used in this project, both targeting
+  approximately <strong>0.50&thinsp;L</strong> — in the centre of the 0.3&ndash;0.6&thinsp;L safe
+  range for most cheap 2&Prime; drivers. This gives a relaxed, extended bass roll-off that suits
+  ambient drones well. The two designs handle the volume differently:
+</p>
+<ul>
+  <li>The <strong>3D print</strong> is sized to 0.50&thinsp;L directly. Polyfill is used only as a
+      thin wall-damping coat (not to inflate the volume), giving a final acoustic volume of
+      ~0.52&thinsp;L.</li>
+  <li>The <strong>plywood</strong> box is sized to 0.41&thinsp;L and relies on a heavier polyfill
+      fill (+25%) to reach the same ~0.51&thinsp;L acoustic target, because the smaller physical
+      footprint suits the finger-joint construction and laser bed size.</li>
+</ul>
+
+<div class="note">
+  <strong>Measure your driver first.</strong> Cheap 2&Prime; drivers vary considerably.
+  Before cutting anything, measure:
+  <ul style="margin-top:0.5rem">
+    <li><strong>Cutout diameter</strong> — the hole the basket drops through. Typically 44&ndash;48&thinsp;mm. The surround/flange must overhang the hole.</li>
+    <li><strong>Flange diameter</strong> — the outer rim that sits on the baffle. Typically 58&ndash;65&thinsp;mm. The baffle must have at least 6&thinsp;mm of material beyond the flange edge.</li>
+    <li><strong>Mounting bolt circle</strong> — diameter of the screw hole pattern. Mark and drill/cut pilot holes to match.</li>
+  </ul>
+</div>
+
+<!-- ─ Design 1: 3D Printed ──────────────────────────────────────────────── -->
+<div class="module-card">
+  <h4>Design 1 &mdash; 3D Printed Sealed Box (polyfill, no felt)</h4>
+
+  <h4>Target Dimensions</h4>
+  <table>
+    <tr><th></th><th>Width</th><th>Height</th><th>Depth</th><th>Volume</th></tr>
+    <tr><td><strong>Internal</strong></td><td>80&thinsp;mm</td><td>107&thinsp;mm</td><td>59&thinsp;mm</td><td>&asymp;0.50&thinsp;L</td></tr>
+    <tr><td><strong>External (5&thinsp;mm walls)</strong></td><td>90&thinsp;mm</td><td>117&thinsp;mm</td><td>69&thinsp;mm</td><td>&mdash;</td></tr>
+  </table>
+  <p style="font-size:0.9rem;color:var(--text-dim)">
+    Dimension ratios 59:80:107 &rarr; 1&thinsp;:&thinsp;1.36&thinsp;:&thinsp;1.81 — non-harmonic. Same proportions as the plywood design, scaled up.
+  </p>
+
+  <div class="tip">
+    <strong>Why 0.5&thinsp;L instead of 0.41&thinsp;L + heavy stuffing:</strong>
+    Polyfill has two independent effects: <em>thermal compliance</em> (makes the box seem larger)
+    and <em>acoustic absorption</em> (damps internal reflections off the walls). For a 3D printed box
+    you can size the cavity correctly from the start and use polyfill only for its absorption role —
+    a thin wall coating rather than a half-filled box. The slight effective-volume increase from a
+    light wall coat (~5&ndash;10%) takes you to around 0.52&thinsp;L, comfortably within the
+    target range. This is simpler and more predictable than relying on stuffing density to hit a
+    volume target.
+  </div>
+
+  <h4>Print Two Pieces</h4>
+  <ul>
+    <li>
+      <strong>Box body</strong> — closed on five sides, open on the front (90&thinsp;mm &times; 117&thinsp;mm face).
+      Print open-face-down on the build plate: this orients the layer lines parallel to the largest stress
+      direction and gives the best bed adhesion. Include a 4&thinsp;mm diameter wire-exit hole
+      in one rear corner, centred 8&thinsp;mm from each edge.
+    </li>
+    <li>
+      <strong>Front baffle</strong> — 90&thinsp;mm &times; 117&thinsp;mm &times; 5&thinsp;mm flat panel,
+      printed separately. Speaker cutout and screw pilot holes go here (see placement below).
+      Print flat on the bed for the best surface finish on the visible face.
+    </li>
+  </ul>
+
+  <h4>Slicer Settings</h4>
+  <table>
+    <tr><th>Setting</th><th>Value</th><th>Why</th></tr>
+    <tr><td>Wall thickness</td><td><strong>5&thinsp;mm minimum</strong> (~13 perimeters at 0.4&thinsp;mm nozzle, ~9 at 0.6&thinsp;mm)</td><td>Mass damps panel resonance. 1.6&thinsp;mm (4 perimeters) is too thin and will buzz.</td></tr>
+    <tr><td>Infill</td><td><strong>25% gyroid</strong></td><td>Gyroid creates non-parallel internal voids that scatter standing waves rather than reinforcing them. Avoid rectilinear.</td></tr>
+    <tr><td>Layer height</td><td>0.2&thinsp;mm (0.15&thinsp;mm for the baffle)</td><td>Thinner layers on the baffle give a smoother front-face finish.</td></tr>
+    <tr><td>Material</td><td>PETG preferred; PLA acceptable</td><td>PETG has slightly better internal damping and is less brittle. PLA prints easier; thick walls compensate.</td></tr>
+  </table>
+
+  <h4>Speaker Placement on Baffle</h4>
+  <p>
+    The baffle is 90&thinsp;mm &times; 117&thinsp;mm external. Centre the driver horizontally
+    (45&thinsp;mm from either side — 12.5&thinsp;mm clearance to a 65&thinsp;mm flange).
+    Offset it <strong>10&thinsp;mm above vertical centre</strong>
+    (68.5&thinsp;mm from the bottom instead of 58.5&thinsp;mm). This asymmetry breaks up diffraction
+    from the baffle edges. Verify the driver flange sits at least 6&thinsp;mm inside all four edges
+    before cutting.
+  </p>
+
+  <h4>Polyfill — Wall Damping Only</h4>
+  <p>
+    The box is already the right size, so you do not need to fill it heavily. Polyfill here
+    is acting purely as an acoustic absorber to damp reflections off the smooth plastic walls,
+    not as a volume-increase medium.
+  </p>
+  <ol>
+    <li>Pull polyfill into a loose cloud and press a <strong>10&ndash;15&thinsp;mm fluffy layer</strong>
+        lightly against all five interior walls. Do not compress it flat — keep it light and airy.
+        This is all the stuffing this box needs.</li>
+    <li>Leave the central air volume mostly open. The box should feel substantially empty when you
+        shake it.</li>
+    <li>The thin wall layer adds a small effective-volume increase (~5&ndash;10%), putting the final
+        acoustic volume at around <strong>0.52&thinsp;L</strong> — within the acceptable range
+        for a typical cheap 2&Prime; driver.</li>
+  </ol>
+
+  <h4>Assembly</h4>
+  <ol>
+    <li>Thread the speaker wire through the wire-exit hole before stuffing.</li>
+    <li>Apply the polyfill wall layer as described above.</li>
+    <li>Solder or connect the speaker leads to the driver terminals.</li>
+    <li>Seat the driver in the baffle cutout. Secure with M2.5 or M3 screws. Run a thin bead of
+        cyanoacrylate (CA) glue around the driver surround where it meets the baffle for an
+        airtight acoustic seal.</li>
+    <li>Apply CA glue or 2-part epoxy around the full perimeter of the baffle-to-box-body joint.
+        Press firmly and hold for 60 seconds. Any air gap here will degrade bass response.</li>
+  </ol>
+</div>
+
+<!-- ─ Design 2: 3mm Laser-Cut Plywood ───────────────────────────────────── -->
+<div class="module-card">
+  <h4>Design 2 &mdash; 3&thinsp;mm Laser-Cut Plywood Sealed Box (polyfill, no felt)</h4>
+
+  <h4>Target Dimensions</h4>
+  <table>
+    <tr><th></th><th>Width</th><th>Height</th><th>Depth</th><th>Volume</th></tr>
+    <tr><td><strong>Internal</strong></td><td>75&thinsp;mm</td><td>100&thinsp;mm</td><td>55&thinsp;mm</td><td>&asymp;0.41&thinsp;L</td></tr>
+    <tr><td><strong>External (3&thinsp;mm walls)</strong></td><td>81&thinsp;mm</td><td>106&thinsp;mm</td><td>61&thinsp;mm</td><td>&mdash;</td></tr>
+  </table>
+
+  <h4>Generating Cut Files</h4>
+  <p>
+    Use <strong><a href="https://festi.info/boxes.py/" style="color:var(--cyan)">festi.info/boxes.py</a></strong>
+    (free, browser-based) to generate finger-jointed panel outlines as SVG or DXF.
+    Select <em>ClosedBox</em>, enter the external dimensions below, and set:
+  </p>
+  <ul>
+    <li><strong>Width / Height / Depth:</strong> 81&thinsp;mm &times; 106&thinsp;mm &times; 61&thinsp;mm</li>
+    <li><strong>Thickness:</strong> 3.0&thinsp;mm</li>
+    <li><strong>Burn compensation (kerf):</strong> 0.10&thinsp;mm — cut a test joint in scrap first and adjust until the tabs press-fit snugly without forcing</li>
+  </ul>
+  <p>
+    The generator outputs all six panels with finger joints already included.
+    Export the front panel separately — you will cut it three times.
+  </p>
+
+  <h4>Panel Cut List</h4>
+  <table>
+    <tr><th>Panel</th><th>Qty</th><th>Notes</th></tr>
+    <tr><td>Front baffle (from generator)</td><td>&times;3</td><td>Laminate all three to create a 9&thinsp;mm baffle. Cut the speaker hole <em>after</em> laminating (see below).</td></tr>
+    <tr><td>Back panel (from generator)</td><td>&times;1</td><td>Add a 5&thinsp;mm wire-exit hole in one corner, 8&thinsp;mm from each edge. This goes on last.</td></tr>
+    <tr><td>Top, bottom, left, right (from generator)</td><td>&times;4</td><td>Standard finger-jointed sides.</td></tr>
+  </table>
+
+  <h4>Laminating the Baffle</h4>
+  <p>
+    Three layers of 3&thinsp;mm ply glued together gives a 9&thinsp;mm front baffle — stiff enough
+    to hold the driver mounting screws reliably and resist vibration from the cone.
+    Apply wood glue evenly to both faces of the middle layer, clamp all three together, and
+    let cure for at least 2 hours before cutting the speaker hole.
+    Once cured, the speaker cutout and pilot holes can be laser-cut through the full 9&thinsp;mm
+    stack in a single pass on a 40&thinsp;W+ CO&sub2; laser (use multiple passes at lower power if
+    needed to prevent charring). A 4.5&thinsp;mm drill bit makes clean pilot holes post-lamination.
+  </p>
+
+  <h4>Speaker Placement on Baffle</h4>
+  <p>
+    Same geometry as the 3D-printed design: center horizontally (40.5&thinsp;mm from edge on the
+    81&thinsp;mm face), offset 10&thinsp;mm above vertical centre (63&thinsp;mm from the bottom
+    on the 106&thinsp;mm face). Verify the driver flange clears all edges by at least 6&thinsp;mm
+    before cutting.
+  </p>
+
+  <h4>Assembly Order</h4>
+  <ol>
+    <li><strong>Dry-fit all pieces</strong> — check that finger joints interlock snugly. Sand
+        laser-scorched edges lightly; they are often slightly oversized on the tab faces.</li>
+    <li>Assemble the <strong>four sides and back panel</strong> with wood glue. Finger joints
+        provide mechanical alignment; add a small fillet of glue on the interior joint corners.
+        Clamp and allow to cure fully (1&ndash;2 hours minimum).</li>
+    <li><strong>Seal all interior joints</strong> by running a bead of diluted PVA (1 part PVA,
+        1 part water) along every seam on the inside. Wood is porous — any joint gap is also an
+        air leak.</li>
+    <li>Add polyfill stuffing through the open front (same technique as Design 1, pressing a loose
+        layer against the walls first, then filling the centre to ~50% by feel).</li>
+    <li>Thread the speaker wire out through the rear exit hole.</li>
+    <li>Mount the driver in the laminated baffle, securing with M3 screws and a CA bead around the
+        surround for an air-tight fit.</li>
+    <li>Glue the baffle to the box body last, applying wood glue around the full perimeter and
+        clamping until set. This is the only seam you cannot reach from the inside afterward —
+        clamp it carefully.</li>
+  </ol>
+
+  <div class="tip" style="margin-top:1rem">
+    <strong>Finish tip:</strong> A coat of water-based polyurethane or shellac on the exterior seals the
+    plywood against humidity (which causes the wood to swell and can crack glued joints over time).
+    It also makes the box look intentional rather than prototype-ish.
+  </div>
 </div>
 
 </section>

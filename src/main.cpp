@@ -103,10 +103,13 @@ void setup() {
   filter2.setFrequency(100.0f);
   filterLFO.setWaveform(Waveform::SINE);
   filterLFO.setFrequency(0.025f);
+  filterLFO.setDivider(64);   // 0.025 Hz — compute at ~689 Hz, imperceptible
   delayLFO.setWaveform(Waveform::SINE);
   delayLFO.setFrequency(0.5f);
+  delayLFO.setDivider(64);    // 0.5 Hz — still ~1378 updates/cycle, very smooth
   delayFeedbackLFO.setWaveform(Waveform::SINE);
   delayFeedbackLFO.setFrequency(0.025f);
+  delayFeedbackLFO.setDivider(64); // 0.025 Hz — same as filterLFO
   AudioEngine::begin();
 }
 

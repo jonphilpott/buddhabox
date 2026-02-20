@@ -84,6 +84,21 @@ public:
     // uses a sin() approximation that breaks down above SR/4.
     hz = clampf(hz, 20.0f, SAMPLE_RATE * 0.25f);
 
+    // Early-out if the frequency hasn't changed. sinf() is one of the
+    // more expensive operations in the audio callback — this filter is
+    // often driven by an LFO, which means setFrequency() gets called
+    // once per sample. When the LFO uses a control-rate divider (see
+    // lfo.h setDivider()), it returns the exact same float value for N
+    // consecutive samples. Identical bits → skip the sinf() entirely.
+    //
+    // Note: exact float equality is usually a red flag, but here it's
+    // intentional and safe — we're comparing against our own cached value
+    // that we wrote last time, not comparing two independently-computed
+    // results that might round differently.
+    if (hz == lastHz_)
+      return;
+    lastHz_ = hz;
+
     // The coefficient f = 2 * sin(π * fc / fs) controls how fast the
     // integrators respond. At low frequencies, f is small (sluggish
     // integrators = low cutoff). At high frequencies, f is larger.
@@ -160,10 +175,11 @@ public:
   void clear() { lp_ = hp_ = bp_ = 0.0f; }
 
 private:
-  float f_ = 0.0f;    // Frequency coefficient (controls cutoff)
-  float q_ = 0.0f;    // Resonance amount (stored for reference)
-  float damp_ = 2.0f; // Damping factor (inverse of resonance)
-  float lp_ = 0.0f;   // Lowpass output state
-  float hp_ = 0.0f;   // Highpass output state
-  float bp_ = 0.0f;   // Bandpass output state
+  float f_ = 0.0f;        // Frequency coefficient (controls cutoff)
+  float q_ = 0.0f;        // Resonance amount (stored for reference)
+  float damp_ = 2.0f;     // Damping factor (inverse of resonance)
+  float lp_ = 0.0f;       // Lowpass output state
+  float hp_ = 0.0f;       // Highpass output state
+  float bp_ = 0.0f;       // Bandpass output state
+  float lastHz_ = -1.0f;  // Cached cutoff frequency for change detection
 };
