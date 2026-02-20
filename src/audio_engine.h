@@ -92,6 +92,23 @@
 extern void audioCallback(int16_t *buffer, uint16_t length);
 
 namespace AudioEngine {
+/**
+ * Performance monitoring data for the audio engine.
+ * Helps detect if the audioCallback is taking too long (dropping frames).
+ */
+struct PerformanceStats {
+  uint32_t lastExecutionTimeUs; ///< Microseconds spent in the last callback
+  uint32_t maxExecutionTimeUs;  ///< Peak microseconds spent since start
+  uint32_t budgetUs;            ///< Total allowed time per block
+  uint32_t overruns;            ///< Number of times we missed the deadline
+};
+
 /** Initialize I2S + DMA and begin audio playback. Call once in setup(). */
 void begin();
+
+/**
+ * Retrieve the latest performance statistics.
+ * Use this in your main loop() to monitor CPU load.
+ */
+PerformanceStats getStats();
 } // namespace AudioEngine
