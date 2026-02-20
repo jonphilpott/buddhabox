@@ -11,7 +11,8 @@ The project is designed with an educational focus, featuring highly documented c
 - **Build System:** PlatformIO (Platform: `ststm32@15.4.1`)
 - **Hardware Platform:** STM32F401CC (84MHz ARM Cortex-M4)
 - **Audio Interface:** I2S with DMA double-buffering
-- **DAC:** UDA1334A (Stereo, 16-bit, 44.1kHz)
+- **DAC:** UDA1334A (Stereo, 16-bit, 44.1kHz) or MAX98357A
+- **Speakers:** Inexpensive 5W 4 Ohm 2" speakers
 
 ## Building and Running
 
@@ -87,3 +88,4 @@ To upload via USB-C (DFU mode):
 
 ## Other Instructions
 1. Always ask before making any code changes.
+2. when communicating with me, don't display data in tables, use bulleted lists instead. tables are fine for the HTML documentation

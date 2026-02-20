@@ -348,6 +348,8 @@
   <a href="#examples">Examples</a>
   <a href="#quickstart">Quick Start</a>
   <a href="#hardware">Hardware</a>
+  <a href="#enclosure">Enclosure Guide</a>
+  <a href="#power">Power Requirements</a>
 </nav>
 
 <div class="container">
@@ -1782,8 +1784,132 @@ on PA0, which the ADC reads as 0&#x2013;4095.</div>
   </tr>
 </table>
 
+<h4>MAX98357A Wiring Diagram</h4>
+
+<div class="diagram-box">Black Pill (top view)             MAX98357A
+&#x250C;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2510;        &#x250C;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2510;
+&#x2502;         [USB-C]       &#x2502;        &#x2502;          &#x2502;
+&#x2502;                       &#x2502;        &#x2502;  [Speaker]&#x2502;
+&#x2502;     5V &#x25CF; &#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x25B6; VIN      &#x2502;
+&#x2502;                       &#x2502;        &#x2502;  [Out +/-]&#x2502;
+&#x2502;    GND &#x25CF; &#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x25B6; GND      &#x2502;
+&#x2502;                       &#x2502;        &#x2502;          &#x2502;
+&#x2502;   PB15 &#x25CF; &#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x25B6; DIN      &#x2502;
+&#x2502;   PB13 &#x25CF; &#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x25B6; BCLK     &#x2502;
+&#x2502;   PB12 &#x25CF; &#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x25B6; LRC (WS) &#x2502;
+&#x2514;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2518;        &#x2514;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2518;</div>
+
 <div class="tip">
   <strong>Power Tip:</strong> Add a large capacitor (470&micro;F or higher) across the MAX98357A's <strong>VIN</strong> and <strong>GND</strong> to prevent voltage drops during loud peaks.
+</div>
+
+</section>
+
+<!-- ======================================================================= -->
+<section id="enclosure">
+<h2>Speaker Enclosure Guide</h2>
+
+<p>
+  To get the best "warmth" for your ambient drones from small 3W/5W speakers, the enclosure design is just as important as the DSP code. For small, full-range drivers, a <strong>Sealed Enclosure</strong> is almost always the best choice—it provides a smooth bass roll-off and protects the speaker from over-excursion.
+</p>
+
+<h3>Optimal Acoustic Ratios</h3>
+<p>
+  To prevent "boxy" resonances, avoid the "Perfect Cube" where all dimensions are equal. Instead, use the <strong>Acoustic Ratio 1 : 1.25 : 1.6</strong>. This spreads internal standing waves across the spectrum, preventing energy "pile-up" at a single frequency.
+</p>
+
+<h3>Internal Dimension Recommendations</h3>
+<p><em>Note: These are <strong>internal</strong> measurements. Add your material thickness (e.g., 6mm MDF or 1.6mm 3D print walls) to determine external size.</em></p>
+
+<table>
+  <tr>
+    <th>Speaker Diameter</th>
+    <th>Target Volume</th>
+    <th>Optimal Internal Dimensions (W x H x D)</th>
+  </tr>
+  <tr>
+    <td>1.5" (40mm)</td>
+    <td>~0.35 Liters</td>
+    <td>5.5cm x 6.9cm x 8.8cm</td>
+  </tr>
+  <tr>
+    <td>2.0" (50mm)</td>
+    <td>~0.75 Liters</td>
+    <td>7.1cm x 8.9cm x 11.4cm</td>
+  </tr>
+  <tr>
+    <td>3.0" (75mm)</td>
+    <td>~1.6 Liters</td>
+    <td>9.3cm x 11.6cm x 14.9cm</td>
+  </tr>
+</table>
+
+<h3>Advanced Tuning Tips</h3>
+
+<ul>
+  <li><strong>Slanted Back Wall:</strong> If possible, tilt the rear wall by 5&ndash;10&deg;. This is the single most effective way to eliminate standing waves between the front and back of the box.</li>
+  <li><strong>Baffle Off-Centering:</strong> Don't mount the speaker exactly in the center of the front face. Shifting it slightly (e.g., 5mm left and 5mm up) smooths out the "baffle step" diffraction.</li>
+  <li><strong>Damping Material:</strong> Stuff the box loosely (about 50% full) with <strong>poly-fill</strong> or cotton. This "tricks" the speaker into seeing a box that is 15&ndash;20% larger than its physical size.</li>
+  <li><strong>Airtight Seal:</strong> 100% airtight is critical for sealed boxes. Use hot glue or silicone around the speaker rim and wire holes. Even a tiny air leak will ruin the bass response.</li>
+</ul>
+
+<h3>Material Choice</h3>
+<ul>
+  <li><strong>Wood (MDF/Plywood):</strong> 6mm (1/4") is the sweet spot. Wood is naturally "deader" than plastic and produces the warmest tone for generative audio.</li>
+  <li><strong>3D Printed:</strong> Use at least 4 wall perimeters (1.6mm thickness). Thin walls will vibrate and rattle during low-frequency drones.</li>
+</ul>
+
+<div class="tip">
+  <strong>Pro Tip:</strong> For extremely small enclosures (under 0.5L), consider using a <strong>Passive Radiator</strong> (a "fake" speaker cone with no magnet). It allows for deep bass response without the complexity of an air port.
+</div>
+
+</section>
+
+<!-- ======================================================================= -->
+<section id="power">
+<h2>Power Requirements</h2>
+
+<p>
+  BuddhaBox is designed to run on standard 5V USB power. The total current draw depends primarily on whether you're using a low-power line-out DAC or a higher-power speaker amplifier.
+</p>
+
+<h3>Estimated Current Draw (at 5V)</h3>
+
+<table>
+  <tr>
+    <th>Component</th>
+    <th>Current Draw</th>
+    <th>Notes</th>
+  </tr>
+  <tr>
+    <td><strong>Black Pill (STM32F401)</strong></td>
+    <td>40mA &ndash; 70mA</td>
+    <td>Running at 84MHz with I2S and DMA active.</td>
+  </tr>
+  <tr>
+    <td><strong>UDA1334A DAC</strong></td>
+    <td>4mA &ndash; 10mA</td>
+    <td>Extremely efficient line-level output. Total system draw ~80mA.</td>
+  </tr>
+  <tr>
+    <td><strong>MAX98357A Amp (Idle)</strong></td>
+    <td>~100mA total</td>
+    <td>Total system draw (Black Pill + Amplifier on but silent).</td>
+  </tr>
+  <tr>
+    <td><strong>MAX98357A Amp (Normal)</strong></td>
+    <td>200mA &ndash; 300mA</td>
+    <td>Typical listening levels with 3W speaker.</td>
+  </tr>
+  <tr>
+    <td><strong>MAX98357A Amp (Peak)</strong></td>
+    <td>600mA &ndash; 800mA</td>
+    <td>Peak 3W output. Ensure USB source is rated for 1.0A.</td>
+  </tr>
+</table>
+
+<div class="note">
+  <strong>Stability Tip:</strong> If your system crashes or restarts during loud audio peaks, your power source likely can't handle the current spikes. Use a high-quality USB cable and add **bulk capacitance** (470&micro;F or higher) across the 5V and GND rails near the amplifier.
 </div>
 
 </section>
