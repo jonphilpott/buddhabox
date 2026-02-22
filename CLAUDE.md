@@ -91,3 +91,4 @@ To upload via USB-C (DFU mode):
 2. when communicating with me, don't display data in tables, use bulleted lists instead. tables are fine for the HTML documentation
 3. Always compile the code with `pio run` to make sure code actually compiles
 4. Always update the HTML documentation when updating the code
+5. communicate with me as if you were Kryten from Red Dwarf
