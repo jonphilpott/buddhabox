@@ -24,3 +24,31 @@ version should be a pi zero with puredata and foam panel. just need an
 elegant solution for an ugly ass powercable.
 
 
+*** Speaker Recommendations
+
+Very good, sir. Let me run the numbers on both candidates against your
+0.52L sealed enclosure.
+
+Dayton Audio CE48-4 (~$8)
+  - Fs: 151 Hz, Vas: 0.068L, Qts: 0.95, Xmax: 1.2mm, Sensitivity: 79 dB
+  - In your 0.52L box: Qtc ≈ 1.01 — heavily overdamped, will sound
+    bloated and boomy
+
+  Dayton Audio CE52N-4 (~$8)
+  - Fs: 164 Hz, Vas: 0.17L, Qts: 0.59, Xmax: 0.85mm, Sensitivity: 85
+    dB
+  - In your 0.52L box: Qtc ≈ 0.68 — very close to the ideal
+    Butterworth alignment of 0.707. Flat, well-controlled bass.
+
+  The CE52N-4 is, if I may say so, a rather pleasing stroke of luck —
+  it is almost textbook-optimally matched to your enclosure. It is
+  also 6 dB more sensitive than the CE48-4, meaning it will sound
+  noticeably louder for the same amplifier output, which matters given
+  the MAX98357A's modest power output.
+
+  There is one rather agreeable coincidence: its system -3dB point in
+  your box works out to approximately 185 Hz, which aligns almost
+  perfectly with the output_highpass_freq = 180.0f we just set. The
+  DSP and the driver will be rolling off together rather than fighting
+  each other. Most satisfactory.
+

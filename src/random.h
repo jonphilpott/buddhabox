@@ -161,6 +161,10 @@ public:
     return min + (next() % (max - min + 1));
   }
 
+  uint32_t getState() {
+    return state_;
+  }
+
 private:
   uint32_t state_;
 };

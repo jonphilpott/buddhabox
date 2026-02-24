@@ -4,8 +4,11 @@
  */
 
 #include "midi_utils.h"
+#include "random.h"
 
 #pragma once
+
+#define MELODY_LENGTH (16)
 
 float JUST_OFFSETS[] = {
   1.0f,
@@ -28,8 +31,9 @@ class Colour {
  public:
   float getNote(uint8_t octave, uint8_t num) {
     uint8_t n = num % 5;
+    uint8_t o = num / 5;
 
-    return (root_ * offsets_[n]) * (1 << octave);
+    return (root_ * offsets_[n]) * (1 << (o + octave));
   }
 
   void setColour(uint8_t colour) {
@@ -49,9 +53,30 @@ class Colour {
   void setRoot(float r) {
     root_ = r;
   }
+
+  void newMelody(LFSR *rng, uint8_t rmax) {
+    melody_[0] = 0;
+    
+    for (int i = 0; i < (MELODY_LENGTH-2); i++) {
+      melody_[i+1] = rng->nextRange(0, rmax);
+    }
+
+    if (rng->next() > 0.5) {
+      melody_[MELODY_LENGTH-1] = 0;
+    }
+    else {
+      melody_[MELODY_LENGTH-1] = 3;
+    }
+  }
+
+  uint8_t getMelody(uint8_t idx) {
+    return melody_[idx % MELODY_LENGTH];
+  }
   
  private:
   uint8_t colour_ = 0;
   float offsets_[5] = { JUST_OFFSETS[0], JUST_OFFSETS[1], JUST_OFFSETS[5], JUST_OFFSETS[7], JUST_OFFSETS[8] };
-  float root_ = (NOTE_C2) + 2;
+  // everything is in fez major
+  float root_ = (NOTE_C2)+2;
+  uint8_t melody_[MELODY_LENGTH];
 };

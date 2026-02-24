@@ -83,11 +83,11 @@ public:
    * reading (no gradual ramp-up from zero).
    */
   void update() {
-    uint16_t raw = analogRead(pin_);
+    raw_ = analogRead(pin_);
 
     if (!initialized_) {
       // First reading: initialize directly to avoid a slow ramp from 0
-      smoothed_ = (float)raw;
+      smoothed_ = (float)raw_;
       initialized_ = true;
     } else {
       // Exponential Moving Average (EMA):
@@ -97,7 +97,7 @@ public:
       // increases. When raw < smoothed, the difference is negative →
       // smoothed decreases. Alpha controls how fast: small alpha = slow
       // tracking, large = fast.
-      smoothed_ += alpha_ * ((float)raw - smoothed_);
+      smoothed_ += alpha_ * ((float)raw_ - smoothed_);
     }
   }
 
@@ -118,6 +118,18 @@ public:
     return smoothed_ / 4095.0f;
   }
 
+
+  /*
+   * tweaked based on actual read values
+   */
+  float readLDR() const {
+    float r = 1 - (read() * 5);
+
+    float adj = r < 0.0f ? 0.0f : (r * 2.75);
+    adj = adj > 1.0f ? 1.0f : adj;
+    return adj;
+  }
+
   /**
    * Get the smoothed value as a raw 12-bit integer (0–4095).
    *
@@ -127,6 +139,13 @@ public:
    * @return  Smoothed ADC value truncated to uint16_t
    */
   uint16_t readRaw() const { return (uint16_t)smoothed_; }
+
+  /**
+   * get the last actual read value from the ADC
+   *
+   * @return really raw adc val
+   */
+  uint16_t readReallyRaw() const { return raw_; }
 
   /**
    * Change the smoothing factor at runtime.
@@ -141,6 +160,7 @@ public:
 
 private:
   uint8_t pin_;      // ADC pin number
+  uint16_t raw_;     // last raw value
   float alpha_;      // EMA smoothing coefficient
   float smoothed_;   // Current smoothed value (in raw ADC units, 0-4095)
   bool initialized_; // Whether we've taken the first reading yet

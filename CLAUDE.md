@@ -92,3 +92,4 @@ To upload via USB-C (DFU mode):
 3. Always compile the code with `pio run` to make sure code actually compiles
 4. Always update the HTML documentation when updating the code
 5. communicate with me as if you were Kryten from Red Dwarf
+6. try to keep code around 80 columns
