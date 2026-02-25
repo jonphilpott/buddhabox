@@ -450,6 +450,7 @@
 &nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">lfo.h</span> <span class="desc">&#x2500;&#x2500; Low Frequency Oscillator for modulation</span><br>
 &nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">envelope.h</span> <span class="desc">&#x2500;&#x2500; Attack-Release envelope generator</span><br>
 &nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">filter.h</span> <span class="desc">&#x2500;&#x2500; State Variable Filter (LP / HP / BP)</span><br>
+&nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">moog_filter.h</span> <span class="desc">&#x2500;&#x2500; 4-pole Moog ladder filter (LP, 24 dB/oct)</span><br>
 &nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">delay.h</span> <span class="desc">&#x2500;&#x2500; Delay line (int16 storage, interpolated reads)</span><br>
 &nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">karplus.h</span> <span class="desc">&#x2500;&#x2500; Karplus-Strong plucked string synthesis</span><br>
 &nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">clock.h</span> <span class="desc">&#x2500;&#x2500; Sample-accurate tempo clock</span><br>
@@ -974,6 +975,119 @@ filter.<span class="func">process</span>(inputSample);
 <span class="type">float</span> bright = filter.<span class="func">highpass</span>();
 <span class="type">float</span> focused = filter.<span class="func">bandpass</span>();
 <span class="type">float</span> notch = filter.<span class="func">lowpass</span>() + filter.<span class="func">highpass</span>();  <span class="comment">// Notch filter!</span></code></pre>
+
+<!-- ── MoogFilter ──────────────────────────────────────────────────────── -->
+<h3>MoogFilter <code>moog_filter.h</code></h3>
+
+<div class="module-card">
+  <h4>Class: MoogFilter</h4>
+  <p>
+    Approximation of the classic Moog ladder filter — four one-pole lowpass
+    stages in series with resonance feedback and a nonlinear input stage.
+    Produces a 24&nbsp;dB/octave rolloff with warm, saturated character.
+    At maximum resonance the filter self-oscillates, producing a pitched
+    sine wave at the cutoff frequency.
+  </p>
+
+  <h4>Signal Flow</h4>
+  <div class="signal-flow">input &#x2192; softclip(x &#x2212; k&#xB7;s[3]) &#x2192; [stage&nbsp;0] &#x2192; [stage&nbsp;1] &#x2192; [stage&nbsp;2] &#x2192; [stage&nbsp;3] &#x2192; output
+                                   &#x2191;                                               &#x2502;
+                                   &#x2514;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500; k &#xD7; feedback &#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2500;&#x2518;</div>
+
+  <h4>MoogFilter vs SVFilter</h4>
+  <table>
+    <tr>
+      <th>Property</th>
+      <th>MoogFilter</th>
+      <th>SVFilter</th>
+    </tr>
+    <tr>
+      <td>Rolloff slope</td>
+      <td>24 dB/octave (4-pole)</td>
+      <td>12 dB/octave (2-pole)</td>
+    </tr>
+    <tr>
+      <td>Output modes</td>
+      <td>Lowpass only</td>
+      <td>LP + HP + BP simultaneously</td>
+    </tr>
+    <tr>
+      <td>Character</td>
+      <td>Warm, nonlinear, saturated</td>
+      <td>Clean, linear</td>
+    </tr>
+    <tr>
+      <td>Self-oscillation</td>
+      <td>Yes (bounded by softclip)</td>
+      <td>Yes (at q = 1.0)</td>
+    </tr>
+    <tr>
+      <td>Frequency coeff</td>
+      <td><code>expf()</code> once in setFrequency()</td>
+      <td><code>sinf()</code> once in setFrequency()</td>
+    </tr>
+  </table>
+
+  <h4>Instantiation</h4>
+  <pre><code><span class="type">MoogFilter</span> filter;  <span class="comment">// Default: 1000 Hz cutoff, no resonance</span></code></pre>
+
+  <h4>Methods</h4>
+
+  <div class="method-block">
+    <div class="method-sig">void setFrequency(float hz)</div>
+    <div class="method-desc">
+      Set the cutoff frequency. Internally calls <code>expf()</code> to compute
+      the one-pole coefficient <code>g = 1 - e^(-2&#x03C0;fc/fs)</code> &mdash; but
+      only when the value has changed. Repeated calls with the same frequency
+      (e.g., from a downsampled LFO) are detected by exact float comparison
+      and skipped, making it safe to call every sample.
+    </div>
+    <div class="method-param"><code>hz</code> &mdash; <code>float</code> &mdash; cutoff in Hertz. Clamped to [20, SAMPLE_RATE&nbsp;&times;&nbsp;0.45].</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">void setResonance(float res)</div>
+    <div class="method-desc">
+      Set filter resonance. Internally maps [0.0, 1.0] to a feedback gain
+      <code>k</code> in [0.0, 3.99]. At <code>k = 4</code> the filter would oscillate
+      indefinitely; the nonlinear input stage keeps it bounded.
+    </div>
+    <div class="method-param"><code>res</code> &mdash; <code>float</code> &mdash; 0.0 = clean lowpass, 0.5 = classic Moog warmth, 0.8 = strong ringing, 1.0 = self-oscillation. Clamped to [0.0, 1.0].</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">float process(float input)</div>
+    <div class="method-desc">
+      Process one input sample. Applies feedback subtraction, the softclip
+      nonlinearity, and four cascaded one-pole stages. Call exactly once per
+      sample in the audio callback.
+    </div>
+    <div class="method-param"><code>input</code> &mdash; <code>float</code> &mdash; input sample, typically -1.0 to +1.0</div>
+    <div class="method-returns">Returns: <code>float</code> &mdash; lowpass-filtered output sample</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">void clear()</div>
+    <div class="method-desc">Reset all four stage states to zero. Use when switching patches to avoid clicks from residual filter energy.</div>
+  </div>
+</div>
+
+<pre><code><span class="type">MoogFilter</span> filter;
+filter.<span class="func">setFrequency</span>(<span class="number">800.0f</span>);
+filter.<span class="func">setResonance</span>(<span class="number">0.6f</span>);
+
+<span class="comment">// In audio callback — classic Moog sweep:</span>
+<span class="type">float</span> saw = osc.<span class="func">process</span>();
+<span class="type">float</span> out = filter.<span class="func">process</span>(saw);
+
+<span class="comment">// Modulate cutoff with an LFO for a filter sweep:</span>
+<span class="type">float</span> mod = lfo.<span class="func">process</span>();
+filter.<span class="func">setFrequency</span>(<span class="func">mapf</span>(mod, -<span class="number">1.0f</span>, <span class="number">1.0f</span>, <span class="number">80.0f</span>, <span class="number">6000.0f</span>));
+
+<span class="comment">// Self-oscillate as a sine wave source — no input needed!</span>
+filter.<span class="func">setResonance</span>(<span class="number">1.0f</span>);
+filter.<span class="func">setFrequency</span>(<span class="number">220.0f</span>);   <span class="comment">// Pitch = 220 Hz (A3)</span>
+<span class="type">float</span> sine = filter.<span class="func">process</span>(<span class="number">0.0f</span>);  <span class="comment">// Feed silence, get sine</span></code></pre>
 
 <!-- ── DelayLine ─────────────────────────────────────────────────────────── -->
 <h3>DelayLine&lt;N&gt; <code>delay.h</code></h3>
