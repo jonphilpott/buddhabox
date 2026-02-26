@@ -1,0 +1,1328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BuddhaBox — Framework Architecture Tutorial</title>
+<style>
+  :root {
+    --bg: #1a1a2e;
+    --bg2: #16213e;
+    --bg3: #0f3460;
+    --accent: #e94560;
+    --accent2: #f5a623;
+    --text: #e0e0e0;
+    --text-dim: #9a9abf;
+    --code-bg: #0d1117;
+    --border: #30305a;
+    --green: #7ec699;
+    --blue: #79b8ff;
+    --purple: #b392f0;
+    --orange: #f5a623;
+    --cyan: #56d4dd;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+  }
+
+  header {
+    background: linear-gradient(135deg, var(--bg2), var(--bg3));
+    border-bottom: 2px solid var(--accent);
+    padding: 3rem 2rem;
+    text-align: center;
+  }
+
+  header h1 {
+    font-size: 2.8rem;
+    font-weight: 300;
+    letter-spacing: 0.15em;
+    color: #fff;
+    margin-bottom: 0.5rem;
+  }
+
+  header h1 span { color: var(--accent); font-weight: 600; }
+
+  header p {
+    color: var(--text-dim);
+    font-size: 1.1rem;
+    max-width: 680px;
+    margin: 0.5rem auto 0;
+  }
+
+  nav {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 0.8rem 2rem;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    display: flex;
+    gap: 1.2rem;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  nav a {
+    color: var(--text-dim);
+    text-decoration: none;
+    font-size: 0.85rem;
+    padding: 0.3rem 0.6rem;
+    border-radius: 4px;
+    transition: all 0.2s;
+  }
+
+  nav a:hover { color: #fff; background: var(--bg3); }
+
+  .container {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 2rem;
+  }
+
+  section { margin-bottom: 3.5rem; }
+
+  h2 {
+    font-size: 1.8rem;
+    font-weight: 300;
+    color: var(--accent);
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0.5rem;
+    margin-bottom: 1.5rem;
+    letter-spacing: 0.05em;
+  }
+
+  h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--orange);
+    margin: 2rem 0 0.75rem;
+  }
+
+  h4 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--cyan);
+    margin: 1.5rem 0 0.5rem;
+  }
+
+  p { margin-bottom: 1rem; color: var(--text); }
+
+  ul, ol {
+    margin: 0.5rem 0 1rem 1.5rem;
+    color: var(--text);
+  }
+
+  li { margin-bottom: 0.4rem; }
+
+  a { color: var(--blue); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  code {
+    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+    background: var(--code-bg);
+    color: var(--green);
+    padding: 0.15em 0.4em;
+    border-radius: 3px;
+    font-size: 0.88em;
+    border: 1px solid var(--border);
+  }
+
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.2rem 1.5rem;
+    overflow-x: auto;
+    margin: 1rem 0 1.5rem;
+    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 0.85rem;
+    line-height: 1.6;
+  }
+
+  .kw  { color: #ff79c6; }  /* keywords */
+  .ty  { color: var(--cyan); }   /* types */
+  .fn  { color: #50fa7b; }  /* function names */
+  .cm  { color: #6272a4; font-style: italic; } /* comments */
+  .st  { color: #f1fa8c; }  /* strings */
+  .nu  { color: #bd93f9; }  /* numbers */
+  .pp  { color: #ff79c6; }  /* preprocessor */
+
+  .callout {
+    border-left: 4px solid var(--accent);
+    background: rgba(233, 69, 96, 0.08);
+    padding: 1rem 1.2rem;
+    margin: 1.2rem 0;
+    border-radius: 0 6px 6px 0;
+  }
+
+  .callout.info {
+    border-left-color: var(--blue);
+    background: rgba(121, 184, 255, 0.07);
+  }
+
+  .callout.tip {
+    border-left-color: var(--green);
+    background: rgba(126, 198, 153, 0.07);
+  }
+
+  .callout.warn {
+    border-left-color: var(--orange);
+    background: rgba(245, 166, 35, 0.07);
+  }
+
+  .callout strong {
+    display: block;
+    margin-bottom: 0.3rem;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .callout.info strong { color: var(--blue); }
+  .callout.tip strong  { color: var(--green); }
+  .callout.warn strong { color: var(--orange); }
+  .callout strong      { color: var(--accent); }
+
+  /* Diagram boxes — styled divs, no pre/ASCII */
+  .diagram {
+    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+    font-size: 0.82rem;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin: 1.2rem 0 1.5rem;
+    overflow-x: auto;
+    line-height: 1.8;
+  }
+
+  .diagram .row {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    white-space: nowrap;
+  }
+
+  .diagram .box {
+    display: inline-block;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.25rem 0.7rem;
+    background: var(--bg3);
+    color: #fff;
+    font-weight: 600;
+  }
+
+  .diagram .box.accent { background: rgba(233,69,96,0.25); border-color: var(--accent); color: var(--accent); }
+  .diagram .box.green  { background: rgba(126,198,153,0.15); border-color: var(--green); color: var(--green); }
+  .diagram .box.blue   { background: rgba(121,184,255,0.12); border-color: var(--blue); color: var(--blue); }
+  .diagram .box.orange { background: rgba(245,166,35,0.15); border-color: var(--orange); color: var(--orange); }
+  .diagram .box.purple { background: rgba(179,146,240,0.15); border-color: var(--purple); color: var(--purple); }
+  .diagram .box.cyan   { background: rgba(86,212,221,0.12); border-color: var(--cyan); color: var(--cyan); }
+
+  .diagram .arr {
+    display: inline-block;
+    color: var(--text-dim);
+    padding: 0 0.4rem;
+    font-size: 0.9rem;
+  }
+
+  .diagram .label {
+    color: var(--text-dim);
+    font-size: 0.78rem;
+    margin-left: 0.8rem;
+    font-style: italic;
+  }
+
+  .diagram .indent { margin-left: 1.5rem; }
+  .diagram .gap    { height: 0.6rem; }
+  .diagram .rule   { border-top: 1px solid var(--border); margin: 0.6rem 0; }
+
+  /* Buffer diagram */
+  .buf-wrap {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    margin: 1rem 0;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 0.8rem;
+  }
+
+  .buf-half {
+    flex: 1;
+    border: 2px solid var(--border);
+    padding: 0.6rem 0.5rem;
+    text-align: center;
+  }
+
+  .buf-half.playing {
+    border-color: var(--green);
+    background: rgba(126,198,153,0.1);
+    color: var(--green);
+  }
+
+  .buf-half.filling {
+    border-color: var(--orange);
+    background: rgba(245,166,35,0.1);
+    color: var(--orange);
+  }
+
+  .buf-half .buf-label {
+    font-weight: 700;
+    font-size: 0.9rem;
+    display: block;
+    margin-bottom: 0.2rem;
+  }
+
+  .buf-half .buf-sub {
+    font-size: 0.72rem;
+    color: var(--text-dim);
+  }
+
+  .signal-chain {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0;
+    margin: 1rem 0 1.5rem;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 0.78rem;
+  }
+
+  .sc-node {
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.3rem 0.6rem;
+    background: var(--bg3);
+    color: #fff;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .sc-node.src   { border-color: var(--purple); background: rgba(179,146,240,0.15); color: var(--purple); }
+  .sc-node.mod   { border-color: var(--cyan);   background: rgba(86,212,221,0.10); color: var(--cyan); }
+  .sc-node.filt  { border-color: var(--blue);   background: rgba(121,184,255,0.10); color: var(--blue); }
+  .sc-node.out   { border-color: var(--accent); background: rgba(233,69,96,0.15); color: var(--accent); }
+  .sc-node.env   { border-color: var(--green);  background: rgba(126,198,153,0.10); color: var(--green); }
+
+  .sc-arr {
+    padding: 0 0.4rem;
+    color: var(--text-dim);
+    font-size: 1.1rem;
+  }
+
+  .badge {
+    display: inline-block;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 0.05rem 0.4rem;
+    font-size: 0.78rem;
+    color: var(--text-dim);
+    font-family: 'JetBrains Mono', monospace;
+    vertical-align: middle;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0 1.5rem;
+    font-size: 0.9rem;
+  }
+
+  th {
+    background: var(--bg3);
+    color: var(--cyan);
+    padding: 0.6rem 0.8rem;
+    text-align: left;
+    font-weight: 600;
+    border-bottom: 2px solid var(--border);
+  }
+
+  td {
+    padding: 0.5rem 0.8rem;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+
+  tr:hover td { background: rgba(255,255,255,0.02); }
+
+  .toc-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 0.75rem;
+    margin: 1.5rem 0;
+  }
+
+  .toc-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.8rem 1rem;
+    text-decoration: none;
+    color: var(--text);
+    transition: all 0.2s;
+  }
+
+  .toc-card:hover {
+    border-color: var(--accent);
+    background: var(--bg3);
+    text-decoration: none;
+  }
+
+  .toc-card .toc-num {
+    font-size: 0.75rem;
+    color: var(--accent);
+    font-weight: 700;
+    letter-spacing: 0.1em;
+  }
+
+  .toc-card .toc-title {
+    display: block;
+    font-weight: 600;
+    margin-top: 0.2rem;
+    color: #fff;
+  }
+
+  .toc-card .toc-sub {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    margin-top: 0.1rem;
+  }
+
+  footer {
+    text-align: center;
+    padding: 2rem;
+    border-top: 1px solid var(--border);
+    color: var(--text-dim);
+    font-size: 0.85rem;
+    margin-top: 3rem;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Buddha<span>Box</span></h1>
+  <p>Framework Architecture Tutorial — How the hardware, audio pipeline, and DSP modules fit together, from bare metal to ambient soundscape.</p>
+</header>
+
+<nav>
+  <a href="#overview">Overview</a>
+  <a href="#hardware">Hardware</a>
+  <a href="#i2s">I2S Protocol</a>
+  <a href="#dma">DMA &amp; Double-Buffer</a>
+  <a href="#callback">Audio Callback</a>
+  <a href="#dsp-design">DSP Design</a>
+  <a href="#oscillator">Oscillators</a>
+  <a href="#lfo">LFOs</a>
+  <a href="#filter">Filters</a>
+  <a href="#envelope">Envelopes</a>
+  <a href="#delay">Delay Lines</a>
+  <a href="#noise">Noise</a>
+  <a href="#analog">Analog Input</a>
+  <a href="#patch">Patching</a>
+  <a href="#performance">Performance</a>
+</nav>
+
+<div class="container">
+
+<!-- ── OVERVIEW ─────────────────────────────────────────────────────────── -->
+<section id="overview">
+  <h2>1. Framework Overview</h2>
+
+  <p>BuddhaBox is a generative ambient audio system built entirely from scratch on a <strong>STM32F401CC "Black Pill"</strong> microcontroller. There is no operating system, no audio middleware, and no scheduler. It is bare-metal C++ all the way down.</p>
+
+  <p>The design goal is a <em>modular synthesizer in code</em>: independent DSP building blocks (oscillators, filters, envelopes, delay lines) that are wired together in a single <code>audioCallback()</code> function to create an evolving sonic patch. Adding a new effect means instantiating a module and connecting its output to an input — exactly like patching a hardware modular synth.</p>
+
+  <p>Here is the full pipeline from power-on to speaker:</p>
+
+  <div class="diagram">
+    <div class="row">
+      <span class="box orange">setup()</span>
+      <span class="arr">→</span>
+      <span class="box">AudioEngine::begin()</span>
+      <span class="arr">→</span>
+      <span class="box blue">I2S + DMA started</span>
+      <span class="arr">→</span>
+      <span class="box green">audio flows forever</span>
+    </div>
+    <div class="gap"></div>
+    <div class="row">
+      <span class="label" style="color:var(--text-dim);">DMA interrupt (44100× per second, in pairs of 256-sample blocks):</span>
+    </div>
+    <div class="gap"></div>
+    <div class="row indent">
+      <span class="box purple">audioCallback()</span>
+      <span class="arr">→</span>
+      <span class="box cyan">DSP modules</span>
+      <span class="arr">→</span>
+      <span class="box blue">int16_t buffer</span>
+      <span class="arr">→</span>
+      <span class="box">I2S peripheral</span>
+      <span class="arr">→</span>
+      <span class="box accent">UDA1334A DAC</span>
+      <span class="arr">→</span>
+      <span class="box green">Speaker</span>
+    </div>
+  </div>
+
+  <p>The key architectural insight is the <strong>separation of concerns</strong>:</p>
+  <ul>
+    <li><strong>audio_engine.cpp</strong> — owns all hardware setup (GPIO, I2S, DMA). You never need to touch it unless you change pins or sample rate.</li>
+    <li><strong>DSP headers</strong> — pure math, no hardware dependencies. Each module is self-contained and testable in isolation.</li>
+    <li><strong>main.cpp</strong> — the "patch": declares module instances, wires them together in <code>audioCallback()</code>, and configures parameters in <code>setup()</code>.</li>
+  </ul>
+</section>
+
+<!-- ── HARDWARE ──────────────────────────────────────────────────────────── -->
+<section id="hardware">
+  <h2>2. Hardware Platform</h2>
+
+  <h3>The STM32F401CC "Black Pill"</h3>
+
+  <p>The Black Pill is a compact development board built around ST Microelectronics' STM32F401CC chip. Key facts relevant to audio:</p>
+
+  <ul>
+    <li><strong>CPU:</strong> 84 MHz ARM Cortex-M4 with hardware floating-point unit (FPU). The FPU handles 32-bit <code>float</code> operations in a single clock cycle, which is why the whole DSP layer uses <code>float</code> instead of fixed-point arithmetic.</li>
+    <li><strong>RAM:</strong> 64 KB SRAM. This constrains how large delay buffers can be. The DMA audio buffer costs 2 KB, leaving ~62 KB for DSP state and delay lines.</li>
+    <li><strong>Flash:</strong> 256 KB. Since all DSP modules are header-only and inlined, the compiled code is relatively compact.</li>
+    <li><strong>I2S peripheral:</strong> A dedicated serial audio interface, built into the SPI2 block. This is what clocks audio bits out to the DAC.</li>
+    <li><strong>DMA controller:</strong> Offloads data transfer from RAM to I2S without involving the CPU. Critical for uninterrupted audio.</li>
+    <li><strong>ADC:</strong> 12-bit analog-to-digital converter, used to read sensors. Not usable from the audio ISR (too slow).</li>
+  </ul>
+
+  <h3>The UDA1334A DAC</h3>
+
+  <p>The UDA1334A is a stereo I2S DAC from NXP. It accepts a digital audio stream and produces an analog voltage that drives the speakers. It supports 16-bit stereo audio at sample rates up to 96 kHz — we use 44.1 kHz (CD quality).</p>
+
+  <table>
+    <tr><th>DAC Pin</th><th>Black Pill Pin</th><th>Function</th></tr>
+    <tr><td>WSEL</td><td>PB12</td><td>Word Select / LRCLK — toggles per sample to indicate Left or Right channel</td></tr>
+    <tr><td>BCLK</td><td>PB13</td><td>Bit Clock — clocks each bit out serially</td></tr>
+    <tr><td>DIN</td><td>PB15</td><td>Data — the actual audio bits</td></tr>
+    <tr><td>GND</td><td>GND</td><td>Common ground</td></tr>
+    <tr><td>VIN</td><td>3V3</td><td>Power supply</td></tr>
+  </table>
+
+  <h3>The Light Sensor (LDR)</h3>
+  <p>A photoresistor (LDR) is connected to analog pin <code>PA0</code>. Its resistance changes with ambient light. The firmware reads this via <code>AnalogInput</code> and uses the value to modulate parameters — brighter light produces brighter, more active music; darkness produces darker, slower music. This is the primary way the physical environment feeds into the generative system.</p>
+</section>
+
+<!-- ── I2S PROTOCOL ──────────────────────────────────────────────────────── -->
+<section id="i2s">
+  <h2>3. The I2S Protocol</h2>
+
+  <p>I2S (Inter-IC Sound) is a simple serial bus for transmitting stereo audio between chips. Understanding it helps you understand why the DMA buffer is structured the way it is.</p>
+
+  <h3>Three Wires, One Stereo Stream</h3>
+
+  <p>I2S carries stereo audio using just three signals:</p>
+  <ul>
+    <li><strong>BCLK (Bit Clock):</strong> The master clock that ticks once per bit. At 44100 Hz stereo 16-bit audio, BCLK runs at <code>44100 × 2 channels × 16 bits = 1,411,200 Hz</code> (1.4 MHz).</li>
+    <li><strong>WSEL (Word Select / LRCLK):</strong> Toggles at the sample rate (44100 Hz). When WSEL is low, the next 16 bits are the <em>left</em> channel; when high, the <em>right</em> channel.</li>
+    <li><strong>DIN (Data In):</strong> The audio bits are shifted out MSB-first on every BCLK edge.</li>
+  </ul>
+
+  <div class="diagram">
+    <div style="color:var(--text-dim); font-size:0.8rem; margin-bottom:0.5rem;">I2S timing diagram (Philips standard, 16-bit stereo):</div>
+    <div style="margin-left:0.5rem; line-height:2;">
+      <span style="color:var(--cyan);">BCLK</span>&nbsp;
+      <span style="color:var(--text-dim);">│▔╷▔╷▔╷▔╷▔╷▔╷▔╷▔╷▔╷▔╷▔╷▔╷▔╷▔╷▔╷▔╷▔╷▔╷▔╷▔╷▔╷▔╷▔╷▔╷▔╷▔╷▔╷▔╷▔╷▔╷▔╷▔╷▔╷</span>
+    </div>
+    <div style="margin-left:0.5rem; line-height:2;">
+      <span style="color:var(--green);">WSEL</span>&nbsp;
+      <span style="color:var(--text-dim);">│</span>
+      <span style="color:var(--green);">▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔</span>
+      <span style="color:var(--text-dim);">│</span>
+      <span style="color:var(--accent);">▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁</span>
+      <span style="color:var(--text-dim);">│</span>
+    </div>
+    <div style="margin-left:0.5rem; line-height:2;">
+      <span style="color:var(--orange);">DIN&nbsp;</span>&nbsp;
+      <span style="color:var(--text-dim);">│</span>
+      <span style="color:var(--green);">&nbsp;LEFT[15]&nbsp;LEFT[14]&nbsp;...&nbsp;LEFT[1]&nbsp;LEFT[0]&nbsp;</span>
+      <span style="color:var(--text-dim);">│</span>
+      <span style="color:var(--accent);">&nbsp;RIGHT[15]&nbsp;RIGHT[14]&nbsp;...&nbsp;RIGHT[1]&nbsp;RIGHT[0]&nbsp;</span>
+      <span style="color:var(--text-dim);">│</span>
+    </div>
+    <div style="margin-top:0.5rem; font-size:0.78rem; color:var(--text-dim);">
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+      &lt;──────────────── one stereo frame = 1/44100 s ────────────────&gt;
+    </div>
+  </div>
+
+  <h3>How the STM32 Configures I2S</h3>
+
+  <p>In <code>audio_engine.cpp</code>, the I2S peripheral is configured via the STM32 HAL library in a series of steps:</p>
+
+  <ol>
+    <li><strong>PLLI2S clock configuration:</strong> The I2S peripheral cannot use the main system clock directly — it needs its own dedicated PLL (Phase Locked Loop) that generates a precise frequency. The BuddhaBox configures <code>PLLI2SN=192</code> and <code>PLLI2SR=2</code> to derive the correct 44.1 kHz sample rate. Getting this wrong produces silence or the wrong pitch.</li>
+    <li><strong>Peripheral clocks enabled:</strong> SPI2 (which contains I2S2), DMA1, and GPIOB clocks are all gated on.</li>
+    <li><strong>GPIO pins configured:</strong> PB12, PB13, PB15 are set to Alternate Function mode with the SPI2 alternate function (<code>GPIO_AF5_SPI2</code>). This routes the I2S signals to those physical pins.</li>
+    <li><strong>I2S peripheral initialized:</strong> Master TX mode, Philips standard, 16-bit data format, no MCLK output.</li>
+    <li><strong>DMA configured and started.</strong></li>
+  </ol>
+
+  <h3>Why I2S Is Shared With SPI2</h3>
+  <p>ST's STM32F4 chips implement I2S inside the SPI peripheral block — they share the same hardware registers. The peripheral is switched into I2S mode at init time. This is why you see <code>SPI2</code> in the source code even though we're doing audio, not SPI.</p>
+</section>
+
+<!-- ── DMA & DOUBLE BUFFER ──────────────────────────────────────────────── -->
+<section id="dma">
+  <h2>4. DMA and the Double-Buffer Pattern</h2>
+
+  <h3>What is DMA?</h3>
+
+  <p>DMA (Direct Memory Access) is a hardware controller on the STM32 that can autonomously transfer data from one memory region to another — or from memory to a peripheral like I2S — without the CPU doing any work. This is essential for audio: if the CPU had to manually push each sample to the I2S hardware, it would spend all its time doing that instead of computing the next sample.</p>
+
+  <p>With DMA, the CPU sets up a transfer <em>once</em> and then is free to compute audio samples while the DMA feeds the I2S peripheral in the background.</p>
+
+  <h3>Circular Mode</h3>
+
+  <p>DMA is configured in <strong>circular mode</strong>. When it reaches the end of the buffer, it automatically wraps back to the beginning and continues — forever. This creates a continuous, uninterrupted audio stream.</p>
+
+  <h3>The Double-Buffer Ping-Pong</h3>
+
+  <p>The DMA buffer is split into two equal halves. This is the key trick that allows the CPU and DMA to work simultaneously without ever touching the same memory at the same time:</p>
+
+  <div class="buf-wrap">
+    <div class="buf-half playing">
+      <span class="buf-label">Half A — DMA Playing</span>
+      <span class="buf-sub">DMA is reading from this half<br>and clocking it to I2S</span>
+    </div>
+    <div class="buf-half filling">
+      <span class="buf-label">Half B — CPU Filling</span>
+      <span class="buf-sub">audioCallback() is computing<br>new samples into this half</span>
+    </div>
+  </div>
+
+  <p>The DMA fires two interrupts per buffer cycle:</p>
+  <ul>
+    <li><strong>Half-complete interrupt:</strong> DMA has finished playing Half A and is now playing Half B. The CPU fills Half A with new samples.</li>
+    <li><strong>Full-complete interrupt:</strong> DMA has finished playing Half B and wraps back to Half A. The CPU fills Half B.</li>
+  </ul>
+
+  <p>This ping-pong repeats at a rate of <code>44100 / 256 ≈ 172 times per second</code>. Each callback fills 256 stereo frames, which takes about 5.8 ms. As long as <code>audioCallback()</code> completes in under 5.8 ms, the audio is gapless.</p>
+
+  <div class="callout warn">
+    <strong>Warning — Timing Budget</strong>
+    At 84 MHz, 5.8 ms equals about 487,000 CPU cycles. That sounds like a lot, but a naive <code>sinf()</code> call takes roughly 200 cycles. With 256 samples and multiple modules, the budget disappears quickly. This is why the framework uses wavetables, fast approximations, and control-rate dividers.
+  </div>
+
+  <h3>Buffer Layout in Memory</h3>
+
+  <p>The DMA buffer is declared as:</p>
+
+<pre><span class="kw">static</span> <span class="ty">int16_t</span> dmaBuffer[AUDIO_BLOCK_SIZE * <span class="nu">2</span> * <span class="nu">2</span>];
+<span class="cm">// = 256 frames × 2 channels × 2 halves = 1024 int16_t = 2048 bytes</span></pre>
+
+  <p>Memory layout:</p>
+
+  <div class="diagram">
+    <div style="font-size:0.8rem; color:var(--text-dim);">dmaBuffer[0..1023]</div>
+    <div class="gap"></div>
+    <div class="row">
+      <span class="box green" style="padding: 0.5rem 2rem;">indices 0–511<br><span style="font-size:0.75rem; font-weight:400;">Half A: 256 stereo frames<br>[L,R,L,R,...] × 256</span></span>
+      <span class="box orange" style="padding: 0.5rem 2rem; margin-left:2px;">indices 512–1023<br><span style="font-size:0.75rem; font-weight:400;">Half B: 256 stereo frames<br>[L,R,L,R,...] × 256</span></span>
+    </div>
+  </div>
+
+  <p>The interrupt handlers in <code>audio_engine.cpp</code> map directly onto this:</p>
+
+<pre><span class="cm">// Called when DMA finishes Half A — fill Half A (starting at index 0)</span>
+<span class="kw">extern</span> <span class="st">"C"</span> <span class="ty">void</span> <span class="fn">HAL_I2S_TxHalfCpltCallback</span>(<span class="ty">I2S_HandleTypeDef</span> *hi2s) {
+  <span class="fn">audioCallback</span>(dmaBuffer, AUDIO_BLOCK_SIZE * <span class="nu">2</span>);
+}
+
+<span class="cm">// Called when DMA finishes Half B — fill Half B (starting at index 512)</span>
+<span class="kw">extern</span> <span class="st">"C"</span> <span class="ty">void</span> <span class="fn">HAL_I2S_TxCpltCallback</span>(<span class="ty">I2S_HandleTypeDef</span> *hi2s) {
+  <span class="fn">audioCallback</span>(dmaBuffer + AUDIO_BLOCK_SIZE * <span class="nu">2</span>, AUDIO_BLOCK_SIZE * <span class="nu">2</span>);
+}</pre>
+</section>
+
+<!-- ── AUDIO CALLBACK ────────────────────────────────────────────────────── -->
+<section id="callback">
+  <h2>5. The Audio Callback</h2>
+
+  <p>The <code>audioCallback()</code> function is the heart of everything. It runs in <strong>interrupt context</strong> — meaning it preempts the main loop and must finish before the DMA needs the buffer again.</p>
+
+  <h3>Signature and Buffer Format</h3>
+
+<pre><span class="kw">void</span> <span class="fn">audioCallback</span>(<span class="ty">int16_t</span> *buffer, <span class="ty">uint16_t</span> length) {
+  <span class="kw">for</span> (<span class="ty">uint16_t</span> i = <span class="nu">0</span>; i &lt; length; i += <span class="nu">2</span>) {
+    <span class="cm">// compute one stereo frame here...</span>
+    <span class="ty">float</span> leftSample  = <span class="cm">/* ... */</span>;
+    <span class="ty">float</span> rightSample = <span class="cm">/* ... */</span>;
+
+    <span class="cm">// convert float [-1.0, +1.0] → int16_t [-32000, +32000]</span>
+    buffer[i]     = (<span class="ty">int16_t</span>)(leftSample  * <span class="nu">32000.0f</span>);
+    buffer[i + <span class="nu">1</span>] = (<span class="ty">int16_t</span>)(rightSample * <span class="nu">32000.0f</span>);
+  }
+}</pre>
+
+  <p>The buffer is stereo interleaved: each pair of <code>int16_t</code> values is one stereo frame — <code>[Left, Right, Left, Right, ...]</code>. The loop steps by 2 (<code>i += 2</code>) so each iteration handles one frame. <code>length</code> will always be <code>AUDIO_BLOCK_SIZE × 2 = 512</code>.</p>
+
+  <h3>The Float-to-Integer Conversion</h3>
+
+  <p>All internal DSP math uses <code>float</code> normalized to <code>-1.0 to +1.0</code>. The conversion to <code>int16_t</code> happens exactly <em>once</em>, at the very last step. We multiply by <code>32000</code> rather than <code>32767</code> to leave a few counts of headroom before integer overflow — a safety margin for transients.</p>
+
+  <h3>What You Can and Cannot Do Inside the Callback</h3>
+
+  <table>
+    <tr><th>Allowed ✓</th><th>Forbidden ✗</th></tr>
+    <tr><td>Calling <code>module.process()</code></td><td><code>Serial.print()</code> — too slow, blocks</td></tr>
+    <tr><td>Reading smoothed sensor values (<code>lightSensor.read()</code>)</td><td><code>analogRead()</code> — takes ~10–40 µs, causes audio glitches</td></tr>
+    <tr><td>Float arithmetic, table lookups</td><td>Dynamic memory (<code>new</code>, <code>malloc</code>) — fragmentation risk</td></tr>
+    <tr><td>Branching on pre-computed values</td><td>Long blocking loops or <code>delay()</code></td></tr>
+    <tr><td>Updating global DSP state</td><td>Any blocking I/O or hardware communication</td></tr>
+  </table>
+</section>
+
+<!-- ── DSP DESIGN PRINCIPLES ─────────────────────────────────────────────── -->
+<section id="dsp-design">
+  <h2>6. DSP Module Design Principles</h2>
+
+  <p>Every module in the BuddhaBox framework follows the same set of conventions. Understanding these conventions lets you add new modules without surprises.</p>
+
+  <h3>The process() Pattern</h3>
+
+  <p>Every module exposes one core method: <code>process()</code>. It is called exactly once per audio sample inside the callback loop. It advances the module's internal state by one sample and returns (or updates) the output:</p>
+
+<pre><span class="cm">// Source modules: no input, generate a signal</span>
+<span class="ty">float</span> sample = osc.<span class="fn">process</span>();   <span class="cm">// returns next sample</span>
+
+<span class="cm">// Processing modules: take input, return output</span>
+env.<span class="fn">process</span>(inputSample);       <span class="cm">// updates internal state</span>
+<span class="ty">float</span> out = env.<span class="fn">lowpass</span>();      <span class="cm">// read the result</span>
+
+<span class="cm">// Multiplier (envelope shaping):</span>
+<span class="ty">float</span> audio = osc.<span class="fn">process</span>() * env.<span class="fn">process</span>();</pre>
+
+  <h3>Header-Only for Inlining</h3>
+
+  <p>All DSP modules live in <code>.h</code> files with their implementations directly in the class body. This allows the C++ compiler to <em>inline</em> the code at the call site — eliminating function-call overhead for small, frequently-called methods like <code>process()</code>. At 44100 calls per second, even the cost of a function call register save/restore adds up.</p>
+
+  <h3>Float Normalization: The -1.0 to +1.0 Contract</h3>
+
+  <p>All audio signals flowing between modules must stay in the range <code>-1.0 to +1.0</code>. This is not enforced at every step — it's a design contract. Benefits:</p>
+  <ul>
+    <li>You can sum signals by addition: <code>mix = a + b</code>, then scale down: <code>mix * 0.5f</code></li>
+    <li>Multiplication is always modulation: <code>osc.process() * env.process()</code> applies the envelope as an amplitude shape</li>
+    <li>The final int16 conversion is a predictable single multiply</li>
+  </ul>
+
+  <h3>No Dynamic Allocation</h3>
+
+  <p>Everything is allocated at compile time — global or static instances. This avoids heap fragmentation (a serious problem in embedded systems where RAM is scarce and there's no garbage collector) and guarantees that all memory is available before <code>setup()</code> runs. Delay lines, oscillators, filters — all declared as globals in <code>main.cpp</code>.</p>
+
+  <h3>dsp_common.h — The Foundation</h3>
+
+  <p>This header is included by every module. It provides:</p>
+  <ul>
+    <li><code>SAMPLE_RATE</code> (44100) and <code>AUDIO_BLOCK_SIZE</code> (256) — constants used everywhere to convert between time and samples</li>
+    <li><code>PI_F</code> and <code>TWO_PI_F</code> — float versions of π to avoid implicit <code>double</code> conversions</li>
+    <li><code>clampf(x, lo, hi)</code> — constrain a value to a range</li>
+    <li><code>lerpf(a, b, t)</code> — linear interpolation, used in wavetables and delay reads</li>
+    <li><code>mapf(x, inLo, inHi, outLo, outHi)</code> — rescale from one range to another</li>
+    <li><code>softclip(x, drive)</code> — gentle saturation using a fast tanh approximation</li>
+    <li><code>fastSin(x)</code> — parabolic sine approximation, ~4× faster than <code>sinf()</code></li>
+  </ul>
+</section>
+
+<!-- ── OSCILLATORS ───────────────────────────────────────────────────────── -->
+<section id="oscillator">
+  <h2>7. Oscillators — The Phase Accumulator</h2>
+
+  <p>An oscillator generates a periodic waveform at a given frequency. The BuddhaBox uses the <strong>phase accumulator</strong> pattern, which is the standard approach in digital synthesis.</p>
+
+  <h3>The Core Idea</h3>
+
+  <p>Instead of tracking elapsed time in seconds (which requires division), we maintain a <code>phase</code> variable that ramps from <code>0.0</code> to <code>1.0</code> and wraps. One full <code>0→1</code> cycle equals one period of the waveform. The <em>speed</em> of this ramp is the phase increment:</p>
+
+<pre><span class="cm">// phaseIncrement = how far phase advances each sample</span>
+phaseInc_ = frequency / SAMPLE_RATE;
+
+<span class="cm">// For 440 Hz at 44100 Hz sample rate:</span>
+<span class="cm">// phaseInc = 440 / 44100 ≈ 0.00998</span>
+<span class="cm">// Phase completes one 0→1 cycle in ~100 samples</span></pre>
+
+  <p>This is elegant because the phase stays bounded (no accumulating float precision errors), and changing frequency just means changing the increment.</p>
+
+  <h3>Waveform Generation from Phase</h3>
+
+  <p>Given phase in <code>[0, 1)</code>, computing each waveform is straightforward:</p>
+
+  <table>
+    <tr><th>Waveform</th><th>Formula</th><th>Harmonics</th><th>Character</th></tr>
+    <tr>
+      <td>Sine</td>
+      <td>Wavetable lookup (see below)</td>
+      <td>Fundamental only</td>
+      <td>Pure, smooth, mellow</td>
+    </tr>
+    <tr>
+      <td>Saw</td>
+      <td><code>2.0 × phase − 1.0</code></td>
+      <td>All harmonics (1/n)</td>
+      <td>Bright, buzzy, rich</td>
+    </tr>
+    <tr>
+      <td>Square</td>
+      <td><code>phase &lt; 0.5 ? +1 : −1</code></td>
+      <td>Odd harmonics (1/n)</td>
+      <td>Hollow, clarinet-like</td>
+    </tr>
+    <tr>
+      <td>Triangle</td>
+      <td>Two linear segments</td>
+      <td>Odd harmonics (1/n²)</td>
+      <td>Softer than square</td>
+    </tr>
+  </table>
+
+  <h3>The Sine Wavetable</h3>
+
+  <p>Computing <code>sinf()</code> every sample is expensive (~200 cycles on M4). Instead, the Oscillator class pre-computes a table of 512 sine values once at startup and performs a fast table lookup plus linear interpolation on each sample:</p>
+
+<pre><span class="cm">// At startup (runs once):</span>
+<span class="kw">for</span> (<span class="ty">uint16_t</span> i = <span class="nu">0</span>; i &lt; SINE_TABLE_SIZE; i++)
+  table[i] = <span class="fn">sinf</span>(TWO_PI_F * i / SINE_TABLE_SIZE);
+
+<span class="cm">// Per sample (~3 multiply-add operations on the FPU):</span>
+<span class="ty">float</span> fIdx = phase * SINE_TABLE_SIZE;   <span class="cm">// e.g., 128.7</span>
+<span class="ty">uint16_t</span> i0 = (<span class="ty">uint16_t</span>)fIdx;          <span class="cm">// 128</span>
+<span class="ty">float</span> frac = fIdx - i0;                  <span class="cm">// 0.7</span>
+<span class="ty">uint16_t</span> i1 = (i0 + <span class="nu">1</span>) &amp; (SINE_TABLE_SIZE - <span class="nu">1</span>); <span class="cm">// 129 (wraps at 511→0)</span>
+<span class="kw">return</span> table[i0] + frac * (table[i1] - table[i0]); <span class="cm">// lerp</span></pre>
+
+  <p>The 512-entry table gives interpolation error below <code>-96 dB</code> — the noise floor of 16-bit audio. The table is shared across all <code>Oscillator</code> instances via a C++ Meyer's singleton static, so it only costs 2 KB of RAM regardless of how many oscillators are running.</p>
+</section>
+
+<!-- ── LFO ───────────────────────────────────────────────────────────────── -->
+<section id="lfo">
+  <h2>8. LFOs — Low Frequency Oscillators</h2>
+
+  <p>An LFO is structurally identical to an <code>Oscillator</code> — it's a phase accumulator generating a periodic waveform — but it operates at sub-audio frequencies (typically 0.01 to 20 Hz). Instead of making sound, its output is used to <em>modulate</em> other parameters over time.</p>
+
+  <h3>LFO as a Modulation Source</h3>
+
+  <p>The LFO outputs a signal in <code>[-1.0, +1.0]</code>. You scale and offset it to the target parameter's range using <code>mapf()</code>:</p>
+
+<pre><span class="cm">// LFO sweeping filter cutoff from 500 Hz to 3000 Hz:</span>
+<span class="ty">float</span> mod = filterLFO.<span class="fn">process</span>();  <span class="cm">// -1.0 to +1.0</span>
+<span class="ty">float</span> cutoff = <span class="fn">mapf</span>(mod, <span class="nu">-1.0f</span>, <span class="nu">1.0f</span>, <span class="nu">500.0f</span>, <span class="nu">3000.0f</span>);
+filter1.<span class="fn">setFrequency</span>(cutoff);</pre>
+
+  <p>Common modulation targets in BuddhaBox:</p>
+  <ul>
+    <li><strong>Filter cutoff</strong> — makes the tone breathe and evolve</li>
+    <li><strong>Delay time</strong> — creates subtle chorus/pitch-shifting on echoes</li>
+    <li><strong>Delay feedback</strong> — makes the echo tail dynamically shorter/longer</li>
+    <li><strong>Another LFO's depth</strong> — the "filterLFOLFO" slowly shifts how high the main LFO sweeps</li>
+  </ul>
+
+  <h3>Control-Rate Dividers</h3>
+
+  <p>LFOs are often too slow to justify computing every sample. A filter cutoff moving at 0.025 Hz changes by roughly <code>0.025 / 44100 ≈ 0.0000006</code> per sample — utterly imperceptible. The <code>setDivider(n)</code> method makes the LFO recompute only once every <code>n</code> samples and return the cached value in between:</p>
+
+<pre>filterLFO.<span class="fn">setDivider</span>(<span class="nu">64</span>);  <span class="cm">// Recompute ~689 times/sec instead of 44100</span>
+                             <span class="cm">// 64× fewer sinf() calls in SVFilter</span></pre>
+
+  <p>The frequency stays exact: when the LFO does recompute, it advances its phase by <code>phaseInc × divider</code> to account for all the skipped samples.</p>
+</section>
+
+<!-- ── FILTERS ───────────────────────────────────────────────────────────── -->
+<section id="filter">
+  <h2>9. Filters — The State Variable Filter</h2>
+
+  <p>Filters are the soul of synthesis. They sculpt the frequency content of a signal — cutting some frequencies while passing others — turning raw waveforms and noise into expressive, shaped sound. The BuddhaBox uses the <strong>Chamberlin State Variable Filter (SVF)</strong>, chosen because it simultaneously computes all three common filter responses from a single pass of arithmetic.</p>
+
+  <h3>What Filters Do, Intuitively</h3>
+
+  <p>Imagine a signal is composed of many sine waves at different frequencies all playing at once (this is literally what Fourier analysis tells us). A filter is a device that lets some of those sine waves through unchanged while attenuating (reducing) others. Three fundamental types:</p>
+
+  <ul>
+    <li><strong>Lowpass:</strong> Passes frequencies <em>below</em> the cutoff. Blocks high frequencies. Sounds warm, dark, muffled — like hearing music through a wall.</li>
+    <li><strong>Highpass:</strong> Passes frequencies <em>above</em> the cutoff. Blocks low frequencies. Sounds thin, bright, airy — like a small tinny speaker.</li>
+    <li><strong>Bandpass:</strong> Passes frequencies <em>near</em> the cutoff. Blocks both high and low frequencies. Sounds focused, vowel-like, nasal.</li>
+  </ul>
+
+  <p>A <strong>notch</strong> (band-reject) filter can be synthesized by adding the lowpass and highpass outputs together.</p>
+
+  <h3>The Chamberlin SVF Algorithm</h3>
+
+  <p>The SVF is a recursive digital filter — each output sample depends on previous outputs. It maintains three state variables (<code>lp_</code>, <code>hp_</code>, <code>bp_</code>) that are updated every sample. The update equations per sample are:</p>
+
+  <div class="diagram">
+    <div style="font-size:0.85rem; line-height:2.2;">
+      <span style="color:var(--cyan);">1.</span>&nbsp;
+      <span style="color:var(--blue);">lp</span>
+      <span style="color:var(--text-dim);">&nbsp;+=&nbsp;</span>
+      <span style="color:var(--orange);">f</span>
+      <span style="color:var(--text-dim);">&nbsp;×&nbsp;</span>
+      <span style="color:var(--green);">bp</span>
+      <span class="label">&nbsp;&nbsp;integrate bandpass → lowpass</span>
+    </div>
+    <div style="font-size:0.85rem; line-height:2.2;">
+      <span style="color:var(--cyan);">2.</span>&nbsp;
+      <span style="color:var(--accent);">hp</span>
+      <span style="color:var(--text-dim);">&nbsp;=&nbsp;</span>
+      <span style="color:var(--text);">input</span>
+      <span style="color:var(--text-dim);">&nbsp;-&nbsp;</span>
+      <span style="color:var(--blue);">lp</span>
+      <span style="color:var(--text-dim);">&nbsp;-&nbsp;</span>
+      <span style="color:var(--purple);">damp</span>
+      <span style="color:var(--text-dim);">&nbsp;×&nbsp;</span>
+      <span style="color:var(--green);">bp</span>
+      <span class="label">&nbsp;&nbsp;remainder = highpass</span>
+    </div>
+    <div style="font-size:0.85rem; line-height:2.2;">
+      <span style="color:var(--cyan);">3.</span>&nbsp;
+      <span style="color:var(--green);">bp</span>
+      <span style="color:var(--text-dim);">&nbsp;+=&nbsp;</span>
+      <span style="color:var(--orange);">f</span>
+      <span style="color:var(--text-dim);">&nbsp;×&nbsp;</span>
+      <span style="color:var(--accent);">hp</span>
+      <span class="label">&nbsp;&nbsp;integrate highpass → bandpass</span>
+    </div>
+  </div>
+
+  <p>Where:</p>
+  <ul>
+    <li><code>f = 2 × sin(π × cutoff / sampleRate)</code> — the frequency coefficient. Controls how fast the integrators respond. Small <code>f</code> = low cutoff, large <code>f</code> = high cutoff.</li>
+    <li><code>damp = 2 × (1 − resonance)</code> — the damping factor. Low damping = high resonance peak.</li>
+  </ul>
+
+  <h3>Why Three Integrators?</h3>
+
+  <p>Think of the SVF as a feedback system. The <strong>lowpass</strong> integrates the bandpass — it's like counting up the total area under the bandpass signal, which is a mathematical way of blurring out rapid changes. The <strong>highpass</strong> is what's "left over" after the lowpass and resonance feedback are subtracted. The <strong>bandpass</strong> then integrates the highpass — which means it sits in the middle. Together these three form a closed loop that acts as a tuned resonator.</p>
+
+  <p>Here's the code, directly from <code>filter.h</code>:</p>
+
+<pre><span class="kw">void</span> <span class="fn">process</span>(<span class="ty">float</span> input) {
+  lp_ += f_ * bp_;                    <span class="cm">// Step 1: lowpass integrates bandpass</span>
+  hp_ = input - lp_ - damp_ * bp_;   <span class="cm">// Step 2: highpass is the remainder</span>
+  bp_ += f_ * hp_;                    <span class="cm">// Step 3: bandpass integrates highpass</span>
+}</pre>
+
+  <p>Three multiplications and three additions per sample. This is extraordinarily cheap for the sonic result it produces.</p>
+
+  <h3>Resonance</h3>
+
+  <p>The <code>damp_</code> term in step 2 controls how much of the bandpass signal is subtracted from the highpass. A high damp value (low resonance) dissipates energy quickly — gentle rolloff. A low damp value (high resonance) allows more energy to circulate in the feedback loop, producing a peak in the frequency response at the cutoff. At zero damping, the filter self-oscillates and produces a sine wave at the cutoff frequency — the classic synthesizer "screaming filter."</p>
+
+  <div class="callout warn">
+    <strong>Stability Constraint</strong>
+    The Chamberlin SVF becomes numerically unstable when the cutoff approaches half the sample rate (Nyquist = 22050 Hz). The code clamps the cutoff to <code>SAMPLE_RATE / 4 = 11025 Hz</code> to stay safely below this limit. For ambient music this is never a practical constraint.
+  </div>
+
+  <h3>Frequency Coefficient Caching</h3>
+
+  <p>Computing <code>sinf()</code> for the frequency coefficient is expensive. Since <code>setFrequency()</code> is called every sample when driven by an LFO, but the LFO uses a control-rate divider (returning the same float value for 64 consecutive samples), the filter caches the last frequency value and skips the <code>sinf()</code> when nothing has changed:</p>
+
+<pre><span class="kw">if</span> (hz == lastHz_) <span class="kw">return</span>;   <span class="cm">// identical bits → skip sinf()</span>
+lastHz_ = hz;
+f_ = <span class="nu">2.0f</span> * <span class="fn">sinf</span>(PI_F * hz / SAMPLE_RATE);</pre>
+
+  <p>This is one of the rare legitimate uses of exact float equality comparison — we're comparing our own cached value against itself, not two independently computed results.</p>
+
+  <h3>Using the SVF in Practice</h3>
+
+  <p>In <code>main.cpp</code>, three <code>SVFilter</code> instances are used differently:</p>
+  <ul>
+    <li><strong>filter1</strong> — main lowpass on the summed melody+noise signal, swept by <code>filterLFO</code></li>
+    <li><strong>noise_filter</strong> — bandpass on the pink noise source to give it texture and sweep</li>
+    <li><strong>output_highpass</strong> — static highpass at 180 Hz to remove sub-bass rumble and DC offset from the final output</li>
+  </ul>
+</section>
+
+<!-- ── ENVELOPES ─────────────────────────────────────────────────────────── -->
+<section id="envelope">
+  <h2>10. Envelopes — Shaping Sound Over Time</h2>
+
+  <p>Without an envelope, an oscillator produces a constant drone. An envelope shapes how a sound's amplitude changes from the moment it starts to when it fades away. The BuddhaBox implements an <strong>AR (Attack-Release) envelope</strong> with exponential curves.</p>
+
+  <h3>States</h3>
+
+  <div class="diagram">
+    <div style="font-size:0.82rem; line-height:2.0;">
+      <span class="box" style="background:rgba(121,184,255,0.1); border-color:var(--blue); color:var(--blue);">IDLE</span>
+      <span class="arr">──gate(true)──→</span>
+      <span class="box" style="background:rgba(126,198,153,0.1); border-color:var(--green); color:var(--green);">ATTACK</span>
+      <span class="arr">──reaches 1.0──→</span>
+      <span class="box" style="background:rgba(245,166,35,0.1); border-color:var(--orange); color:var(--orange);">SUSTAIN</span>
+      <span class="arr">──gate(false)──→</span>
+      <span class="box" style="background:rgba(233,69,96,0.1); border-color:var(--accent); color:var(--accent);">RELEASE</span>
+      <span class="arr">──fades to 0──→</span>
+      <span class="box" style="background:rgba(121,184,255,0.1); border-color:var(--blue); color:var(--blue);">IDLE</span>
+    </div>
+    <div class="gap"></div>
+    <div style="font-size:0.78rem; color:var(--text-dim);">
+      &nbsp;&nbsp;trigger() mode: ATTACK → RELEASE (no SUSTAIN — auto-releases after attack)
+    </div>
+  </div>
+
+  <h3>Exponential Curves — Why They Sound Natural</h3>
+
+  <p>Human hearing is logarithmic. We perceive a doubling of sound energy as a roughly equal perceptual step. A <em>linear</em> ramp (constant amount per sample) sounds like it speeds up near the top of the attack and lingers too long at the start of release. An <em>exponential</em> curve (constant <em>ratio</em> per sample) sounds smooth and even because it matches our perceptual scale.</p>
+
+  <p>The implementation uses an exponential approach toward the target:</p>
+
+<pre><span class="cm">// Attack: exponential approach toward 1.0</span>
+value_ = attackCoeff_ * value_ + (<span class="nu">1.0f</span> - attackCoeff_) * <span class="nu">1.0f</span>;
+
+<span class="cm">// Release: exponential decay toward 0.0</span>
+value_ *= releaseCoeff_;</pre>
+
+  <p>The coefficients are computed from the desired time using:</p>
+
+<pre>attackCoeff_  = <span class="fn">expf</span>(<span class="nu">-5.0f</span> / (seconds * SAMPLE_RATE));
+releaseCoeff_ = <span class="fn">expf</span>(<span class="nu">-5.0f</span> / (seconds * SAMPLE_RATE));</pre>
+
+  <p>The <code>-5.0</code> constant ensures the envelope reaches approximately 99% of its target in the requested time (rather than just 63% which a time constant <code>tau</code> approach would give). This matches user intuitions better.</p>
+
+  <h3>Two Trigger Modes</h3>
+
+  <ul>
+    <li><strong>gate(true) / gate(false):</strong> Explicit note-on/note-off. Attack when gate opens, release when it closes. Used for sustained sounds.</li>
+    <li><strong>trigger():</strong> One-shot mode. Attacks from current level then automatically transitions to Release — no Sustain phase. Used for percussive hits in BuddhaBox, as the tung drum note fires and immediately begins decaying.</li>
+  </ul>
+
+  <p>The BuddhaBox uses two envelope instances — one for the percussive tung drum melody (<code>env</code>, fast attack + randomized short release) and one for the slow arpeggio swell (<code>arp_env</code>, 4-second attack + 18-second release).</p>
+</section>
+
+<!-- ── DELAY LINES ───────────────────────────────────────────────────────── -->
+<section id="delay">
+  <h2>11. Delay Lines — Memory of the Past</h2>
+
+  <p>A delay line stores a history of audio samples and lets you read them back after a specified time. It is one of the most versatile DSP primitives, underlying echo, chorus, flanger, and Karplus-Strong string synthesis.</p>
+
+  <h3>The Circular Buffer</h3>
+
+  <p>The naive implementation of a delay would shift all samples in an array forward by one position each sample — an O(N) operation for a buffer of length N. At 44100 Hz, this would be catastrophically slow for any useful delay time.</p>
+
+  <p>Instead, the <code>DelayLine</code> uses a <strong>circular buffer</strong> with a moving write pointer. Writing a sample advances the pointer; reading a sample from N steps ago means looking at <code>(writePos − N)</code>, wrapping around if necessary. Both operations are O(1):</p>
+
+<pre><span class="cm">// Write: store sample, advance pointer</span>
+buffer_[writePos_] = (<span class="ty">int16_t</span>)(sample * <span class="nu">32767.0f</span>);
+writePos_ = (writePos_ + <span class="nu">1</span>) % MAX_SAMPLES;
+
+<span class="cm">// Read: look backward from write position</span>
+<span class="ty">float</span> pos = (<span class="ty">float</span>)writePos_ - delaySamples - <span class="nu">1.0f</span>;
+<span class="kw">if</span> (pos &lt; <span class="nu">0.0f</span>) pos += MAX_SAMPLES;  <span class="cm">// wrap</span></pre>
+
+  <h3>int16_t Storage — Halving RAM Cost</h3>
+
+  <p>Samples are stored as <code>int16_t</code> (2 bytes) rather than <code>float</code> (4 bytes), cutting the RAM requirement in half. The API still accepts and returns <code>float</code> — conversion happens at the boundary. The quantization noise introduced by 16-bit storage is <code>-96 dB</code>, well below the noise floor of the final 16-bit output.</p>
+
+  <h3>Fractional Delay and Linear Interpolation</h3>
+
+  <p>When the delay time is not a whole number of samples (e.g., 100.7 samples), simply rounding to the nearest integer introduces a small pitch error and causes audible "stepping" artifacts when the delay time is modulated. Linear interpolation between the two nearest samples solves this:</p>
+
+<pre><span class="ty">uint16_t</span> idx0 = (<span class="ty">uint16_t</span>)pos % MAX_SAMPLES;
+<span class="ty">uint16_t</span> idx1 = (idx0 + <span class="nu">1</span>) % MAX_SAMPLES;
+<span class="ty">float</span> s0 = (<span class="ty">float</span>)buffer_[idx0] / <span class="nu">32767.0f</span>;
+<span class="ty">float</span> s1 = (<span class="ty">float</span>)buffer_[idx1] / <span class="nu">32767.0f</span>;
+<span class="ty">float</span> frac = pos - <span class="fn">floorf</span>(pos);        <span class="cm">// 0.0–1.0: fractional part</span>
+<span class="kw">return</span> <span class="fn">lerpf</span>(s0, s1, frac);            <span class="cm">// blend between neighbours</span></pre>
+
+  <h3>Echo with Feedback</h3>
+
+  <p>The BuddhaBox delay patch applies an echo to the melodic elements with LFO-modulated feedback and delay time:</p>
+
+<pre><span class="ty">float</span> dlfo     = delayLFO.<span class="fn">process</span>();
+<span class="ty">float</span> delay_fb = <span class="fn">mapf</span>(delayFeedbackLFO.<span class="fn">process</span>(),
+                      <span class="nu">-1.0f</span>, <span class="nu">1.0f</span>,
+                      delay_feedback_min, delay_feedback_max);
+<span class="ty">float</span> delayed  = delay1.<span class="fn">read</span>(
+                    <span class="fn">mapf</span>(dlfo, <span class="nu">-1.0f</span>, <span class="nu">1.0f</span>,
+                         delay_time_min, delay_time_max));
+delay1.<span class="fn">write</span>(sample + delayed * delay_fb); <span class="cm">// feedback loop</span></pre>
+
+  <p>Modulating delay time with an LFO causes subtle pitch shifting (like a chorus effect) on the echoes, making the delay feel alive and breathing rather than mechanical.</p>
+
+  <h3>Template Parameter</h3>
+
+  <p><code>DelayLine</code> is a C++ template class: <code>template &lt;uint16_t MAX_SAMPLES = 4096&gt;</code>. The buffer size is a compile-time constant, so no heap allocation is needed. In <code>main.cpp</code>, the delay is declared as <code>DelayLine&lt;20000&gt; delay1</code> — about 453 ms at 44.1 kHz, costing 40 KB of RAM.</p>
+</section>
+
+<!-- ── NOISE ─────────────────────────────────────────────────────────────── -->
+<section id="noise">
+  <h2>12. Noise Generation</h2>
+
+  <p>Noise is essential for ambient texture. Two generators are provided.</p>
+
+  <h3>White Noise — xorshift32</h3>
+
+  <p><code>WhiteNoise</code> uses a <strong>xorshift32</strong> pseudo-random number generator: three XOR-and-shift operations on a 32-bit state. It produces a sequence of 2³² − 1 values before repeating — at 44100 Hz that's about 27 hours. It runs in roughly 3–5 CPU cycles per sample:</p>
+
+<pre>state_ ^= state_ &lt;&lt; <span class="nu">13</span>;
+state_ ^= state_ &gt;&gt; <span class="nu">17</span>;
+state_ ^= state_ &lt;&lt; <span class="nu">5</span>;
+<span class="kw">return</span> (<span class="ty">float</span>)(<span class="ty">int32_t</span>)state_ / <span class="nu">2147483648.0f</span>; <span class="cm">// → [-1, +1]</span></pre>
+
+  <p>White noise has equal energy per frequency band — it sounds harsh and "hissy." Useful for creating "air" and high-frequency texture when mixed subtly.</p>
+
+  <h3>Pink Noise — Voss-McCartney Algorithm</h3>
+
+  <p>Pink noise has equal energy per <em>octave</em> — it rolls off at −3 dB per octave and sounds much more natural (rain, wind, ocean). The <strong>Voss-McCartney algorithm</strong> achieves this by maintaining 12 "rows" of random values, each updated at a progressively lower rate:</p>
+
+  <ul>
+    <li>Row 0: updated every sample (highest octave, fastest)</li>
+    <li>Row 1: updated every 2 samples</li>
+    <li>Row 2: updated every 4 samples</li>
+    <li>…</li>
+    <li>Row 11: updated every 2048 samples (lowest octave, slowest)</li>
+  </ul>
+
+  <p>The output is the sum of all rows divided by 13. Because each row contributes equal variance but at a lower frequency, we get equal energy per octave. The clever trick for scheduling is to use the <strong>trailing zeros of a counter</strong> to determine which row to update — an O(1) operation:</p>
+
+<pre>counter_++;
+<span class="cm">// Trailing zeros tell us which row to update:</span>
+<span class="cm">// counter=1 → 0 trailing zeros → row 0 (every sample)</span>
+<span class="cm">// counter=2 → 1 trailing zero  → row 1 (every 2 samples)</span>
+<span class="cm">// counter=4 → 2 trailing zeros → row 2 (every 4 samples)</span>
+<span class="kw">int</span> numZeros = __builtin_ctz(counter_) ...  <span class="cm">// (simplified)</span>
+
+runningSum_ -= rows_[numZeros];
+rows_[numZeros] = white_.<span class="fn">process</span>();
+runningSum_ += rows_[numZeros];</pre>
+
+  <p>A running sum avoids re-summing all 12 rows every sample — only one row changes per sample, so we subtract the old value and add the new one.</p>
+
+  <p>In the patch, two <code>PinkNoise</code> instances are used: <code>pink_noise</code> for the main ambient texture (run through a bandpass filter), and <code>rain</code> for a high-frequency rain-like layer (modulated by the <code>rainLFO</code>).</p>
+</section>
+
+<!-- ── ANALOG INPUT ──────────────────────────────────────────────────────── -->
+<section id="analog">
+  <h2>13. Analog Input — Reading Sensors</h2>
+
+  <p>The <code>AnalogInput</code> class reads an ADC pin and smooths the result. It is designed to bridge the slow hardware world (ADC reads, physical sensors) into the fast DSP world (audio callback).</p>
+
+  <h3>The Smoothing Problem</h3>
+
+  <p>Raw ADC readings jitter by several counts even when the input voltage is stable — this is quantization noise from the ADC itself. If you pass a jittery ADC reading directly to <code>filter.setFrequency()</code>, you'll hear crackling artifacts as the filter coefficient jumps around. Smoothing eliminates this.</p>
+
+  <h3>Exponential Moving Average (EMA)</h3>
+
+  <p>The smoothing uses an EMA filter, which is the discrete-time equivalent of a simple RC (resistor-capacitor) lowpass filter:</p>
+
+<pre>smoothed_ += alpha_ * (raw - smoothed_);</pre>
+
+  <p>At each update call, the smoothed value moves a fraction <code>alpha</code> of the way toward the raw reading. Small alpha = slow, smooth tracking. Large alpha = fast, noisier tracking.</p>
+
+  <h3>Thread-Safety Trick</h3>
+
+  <p><code>update()</code> is called from <code>loop()</code> (the main thread). The audio callback (ISR) reads the smoothed value via <code>read()</code>. On ARM Cortex-M4, a 32-bit float read is a single instruction and therefore atomic — the ISR can never see a half-written value. This is why no locking is needed.</p>
+
+  <h3>The LDR Calibration</h3>
+
+  <p>The photoresistor uses a custom <code>readLDR()</code> method that maps the raw read range to a more useful 0.0–1.0 span, accounting for the actual voltage divider characteristics of the hardware. This kind of hardware-specific tuning is normal in embedded audio — the math may look odd but reflects real-world measurements:</p>
+
+<pre><span class="ty">float</span> <span class="fn">readLDR</span>() <span class="kw">const</span> {
+  <span class="ty">float</span> r = <span class="nu">1</span> - (<span class="fn">read</span>() * <span class="nu">5</span>);
+  <span class="ty">float</span> adj = r &lt; <span class="nu">0.0f</span> ? <span class="nu">0.0f</span> : (r * <span class="nu">2.75</span>);
+  adj = adj &gt; <span class="nu">1.0f</span> ? <span class="nu">1.0f</span> : adj;
+  <span class="kw">return</span> adj;
+}</pre>
+</section>
+
+<!-- ── PATCHING ──────────────────────────────────────────────────────────── -->
+<section id="patch">
+  <h2>14. Assembling a Patch — How main.cpp Works</h2>
+
+  <p>With all the modules understood, let's trace how they are assembled in <code>main.cpp</code> into a complete generative soundscape. Think of this as the "patch cable" layer of the modular synth.</p>
+
+  <h3>Global Declarations</h3>
+
+  <p>All DSP objects are declared as globals — this is the embedded equivalent of allocating all your hardware modules at the start. They live in the BSS/data segment and exist before <code>setup()</code> runs:</p>
+
+<pre>PinkNoise pink_noise(<span class="nu">69</span>);    <span class="cm">// ambient texture noise</span>
+PinkNoise rain(<span class="nu">42</span>);          <span class="cm">// rain layer (different seed = uncorrelated)</span>
+Oscillator osc, osc2, arp;    <span class="cm">// melody + overtone + arpeggio voices</span>
+Envelope env, arp_env;        <span class="cm">// percussive + swell envelopes</span>
+TempoClock clock, fast_clock; <span class="cm">// tempo-driven event schedulers</span>
+SVFilter filter1, noise_filter, output_highpass;
+DelayLine&lt;<span class="nu">20000</span>&gt; delay1;     <span class="cm">// ~453 ms delay, costs 40 KB RAM</span>
+LFO filterLFO, delayLFO, delayFeedbackLFO, filterLFOLFO, rainLFO;</pre>
+
+  <h3>The Signal Chain</h3>
+
+  <p>Inside <code>audioCallback()</code>, signals flow through the chain on every sample:</p>
+
+  <div style="overflow-x:auto; padding-bottom:0.5rem;">
+  <div class="signal-chain">
+    <span class="sc-node src">PinkNoise</span>
+    <span class="sc-arr">→</span>
+    <span class="sc-node filt">SVFilter<br><small>bandpass</small></span>
+    <span class="sc-arr">→</span>
+    <span class="sc-node" style="border-color:var(--text-dim);color:var(--text-dim);">noise_sample</span>
+    <span class="sc-arr">→</span>
+    <span class="sc-node out">mix</span>
+  </div>
+  <div class="signal-chain">
+    <span class="sc-node src">Oscillator<br><small>osc + osc2</small></span>
+    <span class="sc-arr">→</span>
+    <span class="sc-node env">Envelope</span>
+    <span class="sc-arr">→</span>
+    <span class="sc-node" style="border-color:var(--text-dim);color:var(--text-dim);">tung_sample</span>
+    <span class="sc-arr">→</span>
+    <span class="sc-node filt">DelayLine<br><small>echo + feedback</small></span>
+    <span class="sc-arr">→</span>
+    <span class="sc-node filt">SVFilter<br><small>lowpass (LFO)</small></span>
+    <span class="sc-arr">→</span>
+    <span class="sc-node filt">SVFilter<br><small>highpass</small></span>
+    <span class="sc-arr">→</span>
+    <span class="sc-node out">softclip<br><small>→ int16</small></span>
+  </div>
+  <div class="signal-chain">
+    <span class="sc-node src">Oscillator<br><small>arp</small></span>
+    <span class="sc-arr">→</span>
+    <span class="sc-node env">Envelope<br><small>arp_env</small></span>
+    <span class="sc-arr">→</span>
+    <span class="sc-node" style="border-color:var(--text-dim);color:var(--text-dim);">arp_sample</span>
+    <span class="sc-arr">→</span>
+    <span class="sc-node filt">DelayLine</span>
+    <span class="sc-arr">→</span>
+    <span class="sc-node out">mix</span>
+  </div>
+  </div>
+
+  <h3>Modulation Connections</h3>
+
+  <p>The LFOs feed into signal parameters rather than the audio path directly:</p>
+
+  <table>
+    <tr><th>LFO</th><th>Modulates</th><th>Effect</th></tr>
+    <tr><td><code>filterLFO</code> (0.012–0.037 Hz)</td><td><code>filter1</code> cutoff (500–3000 Hz)</td><td>Slow, evolving tonal sweep</td></tr>
+    <tr><td><code>filterLFOLFO</code> (0.00125 Hz)</td><td>Upper bound of <code>filterLFO</code> sweep</td><td>Meta-modulation: the sweep itself slowly changes over minutes</td></tr>
+    <tr><td><code>delayLFO</code> (1.75 Hz)</td><td>Delay read position (±25 samples)</td><td>Subtle pitch-shifting on echoes, chorus-like</td></tr>
+    <tr><td><code>delayFeedbackLFO</code> (0.025 Hz)</td><td>Delay feedback (0.6–0.9)</td><td>Echo tail slowly breathes in and out</td></tr>
+    <tr><td><code>rainLFO</code> (very slow, random)</td><td>Rain noise amplitude</td><td>Rain volume slowly rises and falls</td></tr>
+  </table>
+
+  <h3>Generative Events — The Clock System</h3>
+
+  <p>BuddhaBox uses two <code>TempoClock</code> instances to drive musical events inside the audio callback:</p>
+  <ul>
+    <li><strong>clock</strong> — fires at the BPM rate. On each tick, it probabilistically triggers the tung drum melody and schedules parameter evolution events.</li>
+    <li><strong>fast_clock</strong> — fires at a multiple of the BPM (selectable via powers of 2). Used for the arpeggio voice to select new notes rapidly.</li>
+  </ul>
+
+  <p>Events are gated by random probability (<code>rng.nextFloat() &gt; threshold</code>), ensuring that the music is always slightly different — never looping in exactly the same way. The LDR light sensor biases many of these probabilities, so the music responds to the physical environment.</p>
+
+  <h3>The Colour / Scale System</h3>
+
+  <p>The <code>Colour</code> class manages the musical scale and melody. It holds a set of MIDI note offsets forming a pentatonic or diatonic scale, and a melody sequence. The <code>mixItUp()</code> function chooses a new scale, new tempo, new melody, and re-randomizes several parameters — a "colour change" event that shifts the entire character of the music every few minutes.</p>
+
+  <h3>Entropy Seeding</h3>
+
+  <p>The random number generator (<code>LFSR</code>) is seeded from ADC noise. In <code>setup()</code>, 32 readings are taken from the LDR pin, XORed into the LFSR state. Subsequent entropy is injected each clock tick during playback, so the randomness never depletes.</p>
+</section>
+
+<!-- ── PERFORMANCE ───────────────────────────────────────────────────────── -->
+<section id="performance">
+  <h2>15. Performance Considerations</h2>
+
+  <p>Running real-time audio at 44100 Hz on an 84 MHz microcontroller requires careful attention to the cost of every operation in the inner loop. Here is how the BuddhaBox stays within budget.</p>
+
+  <h3>Avoid sinf() in the Hot Path</h3>
+
+  <p><code>sinf()</code> takes roughly 150–200 clock cycles on the Cortex-M4 FPU. At 44100 samples/sec, one <code>sinf()</code> call consumes:</p>
+  <p><code>200 cycles × 44100 calls/sec = 8,820,000 cycles/sec</code></p>
+  <p>That's about 10% of the CPU budget for a single call. Mitigations:</p>
+  <ul>
+    <li><strong>Wavetable lookup:</strong> Used for oscillator sine waves — replaces sinf() with two table reads and a lerp (~5 cycles total)</li>
+    <li><strong>fastSin() approximation:</strong> Used in LFO — parabolic curve, error &lt;0.1%, ~20 cycles</li>
+    <li><strong>Coefficient caching:</strong> SVFilter caches the last cutoff frequency and skips sinf() when unchanged</li>
+    <li><strong>Control-rate dividers:</strong> LFOs compute only every 64 or 256 samples, so SVFilter's sinf() calls drop by the same factor</li>
+  </ul>
+
+  <h3>No Branching on Audio-Rate Signals</h3>
+
+  <p>Conditional branches inside the sample loop can cause CPU pipeline stalls. DSP operations should be branchless where possible. The envelope's state machine is the main exception — but state changes are rare (only on gate events), so the branch predictor handles it well.</p>
+
+  <h3>No I/O Inside the Callback</h3>
+
+  <p>Serial output, I2C, SPI, and ADC reads are all performed exclusively from <code>loop()</code>. The <code>lightSensor.update()</code> call in <code>loop()</code> fills a float that the audio callback reads safely (atomic on ARM). This clean separation prevents priority inversion and audio glitches.</p>
+
+  <h3>Float vs Double</h3>
+
+  <p>The STM32F401 has a hardware FPU for 32-bit <code>float</code>. <code>double</code> operations are emulated in software and take roughly 20× longer. Every math constant in the codebase uses the <code>f</code> suffix (<code>3.14159f</code>, <code>0.5f</code>) to stay in float and avoid implicit widening to double.</p>
+
+  <h3>int16_t Delay Storage</h3>
+
+  <p>Using <code>int16_t</code> in <code>DelayLine</code> halves the RAM cost and keeps the delay buffer in a smaller cache footprint on the M4. The quantization noise is inaudible at the application level.</p>
+
+  <h3>Static Allocation</h3>
+
+  <p>All objects are stack or global — no dynamic allocation. This gives the linker complete visibility into memory usage and prevents fragmentation. The linker map shows exactly how much RAM is used and raises a compile-time error if it exceeds 64 KB.</p>
+
+  <h3>Measuring CPU Usage</h3>
+
+  <p>To verify the audio callback is completing on time, you can toggle a GPIO pin at the start and end of the callback and measure the pulse width with an oscilloscope. If the pulse ever exceeds 5.8 ms, you have an overrun. Alternatively, watch for audio glitches — they manifest as periodic clicks or silence when the callback misses its deadline.</p>
+
+  <div class="callout tip">
+    <strong>Tip — Adding a New Module</strong>
+    When adding a new DSP module, estimate its cost first: count multiplications and function calls in the process() path. One heavy-weight sinf() call ≈ 200 cycles ≈ 0.2% of the 84 MHz budget at 44100 Hz. Five modules each using sinf() per sample = ~1% budget, which is fine. Twenty modules would start to push limits. Use control-rate dividers and coefficient caching aggressively.
+  </div>
+</section>
+
+<!-- ── ADDING NEW THINGS ──────────────────────────────────────────────────── -->
+<section id="extending">
+  <h2>16. How to Add New Things</h2>
+
+  <h3>Adding a New DSP Module</h3>
+
+  <ol>
+    <li>Create a new header file in <code>src/</code>, e.g. <code>src/chorus.h</code></li>
+    <li>Add <code>#pragma once</code> and <code>#include "dsp_common.h"</code></li>
+    <li>Write the class with a <code>process()</code> method. Follow the sample-by-sample pattern.</li>
+    <li>Declare an instance in <code>main.cpp</code> as a global</li>
+    <li>Call <code>module.process()</code> at the right point in <code>audioCallback()</code></li>
+    <li>Configure it in <code>setup()</code></li>
+  </ol>
+
+  <h3>Adding a New Modulation</h3>
+
+  <p>To connect an LFO to a new parameter:</p>
+  <ol>
+    <li>Declare an <code>LFO</code> global instance</li>
+    <li>Set its frequency, waveform, and divider in <code>setup()</code></li>
+    <li>In the callback: <code>float mod = myLFO.process();</code> then <code>float param = mapf(mod, -1.0f, 1.0f, lo, hi);</code></li>
+    <li>Pass <code>param</code> to the target module's setter</li>
+  </ol>
+
+  <h3>Adding a New Hardware Input</h3>
+
+  <p>To add a potentiometer or sensor on a new analog pin:</p>
+  <ol>
+    <li>Declare <code>AnalogInput myKnob(PA1, 0.1f);</code> — choose an alpha appropriate for how fast you expect the signal to change</li>
+    <li>Call <code>myKnob.update();</code> in <code>loop()</code></li>
+    <li>In the audio callback, read it: <code>float val = myKnob.read();</code> — this is safe from ISR context</li>
+    <li>Scale with <code>mapf()</code> to your parameter range</li>
+  </ol>
+
+  <h3>Changing the Sample Rate or Block Size</h3>
+
+  <p>Both are defined as <code>constexpr</code> in <code>dsp_common.h</code>. The I2S peripheral clock configuration in <code>audio_engine.cpp</code> also needs updating — the PLLI2S values must be recalculated for the new sample rate. All DSP modules that use <code>SAMPLE_RATE</code> in their math (oscillators, filters, envelopes) automatically adapt because they reference the constant directly.</p>
+</section>
+
+</div><!-- /container -->
+
+<footer>
+  <p>BuddhaBox Framework Architecture Tutorial &mdash; generated February 2026</p>
+  <p style="margin-top:0.5rem;">
+    <a href="index.html">← API Reference</a>
+  </p>
+</footer>
+
+</body>
+</html>

@@ -456,6 +456,7 @@
 &nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">clock.h</span> <span class="desc">&#x2500;&#x2500; Sample-accurate tempo clock</span><br>
 &nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">midi_utils.h</span> <span class="desc">&#x2500;&#x2500; MIDI note &#x2192; frequency conversion</span><br>
 &nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">analog_input.h</span> <span class="desc">&#x2500;&#x2500; Smoothed ADC reader for sensors</span><br>
+&nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">switch_input.h</span> <span class="desc">&#x2500;&#x2500; Debounced switch with trigger/hold/release</span><br>
 &nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">audio_engine.h</span> <span class="desc">&#x2500;&#x2500; I2S DMA engine (interface)</span><br>
 &nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">audio_engine.cpp</span> <span class="desc">&#x2500;&#x2500; I2S DMA engine (implementation)</span><br>
 &nbsp;&nbsp;&nbsp; &#x2514;&#x2500;&#x2500; <span class="file">main.cpp</span> <span class="desc">&#x2500;&#x2500; Example patch (filtered pink noise drone)</span>
@@ -1394,6 +1395,113 @@ osc.<span class="func">setFrequency</span>(<span class="func">midiToFreq</span>(
 <span class="type">float</span> brightness = sensor.<span class="func">read</span>();
 <span class="type">float</span> cutoff = <span class="func">mapf</span>(brightness, <span class="number">0.0f</span>, <span class="number">1.0f</span>, <span class="number">200.0f</span>, <span class="number">4000.0f</span>);
 filter.<span class="func">setFrequency</span>(cutoff);</code></pre>
+
+<!-- ── SwitchInput ─────────────────────────────────────────────────────────── -->
+<h3>SwitchInput <code>switch_input.h</code></h3>
+
+<div class="module-card">
+  <h4>Class: SwitchInput</h4>
+  <p>
+    Debounced digital switch reader for momentary switches wired to ground.
+    Call <code>begin()</code> in <code>setup()</code>, <code>update()</code>
+    from <code>loop()</code>, and poll <code>triggered()</code> /
+    <code>released()</code> / <code>isHeld()</code> from the audio callback
+    or loop. All three query methods are ISR-safe.
+  </p>
+  <p>
+    Uses a time-based debounce (via <code>millis()</code>) so it works
+    correctly at any polling rate. No external resistors are needed &mdash;
+    the internal pull-up holds the pin HIGH when the switch is open.
+  </p>
+
+  <h4>Wiring</h4>
+  <div style="font-family: monospace; background: var(--code-bg);
+              border: 1px solid var(--border); border-radius: 6px;
+              padding: 1rem; margin: 1rem 0; color: var(--green);
+              font-size: 0.9rem; line-height: 1.8;">
+    <span style="color:var(--text-dim)">3.3V</span>
+    <span style="color:var(--text)"> ──[internal pull-up]──</span>
+    <span style="color:var(--blue)"> PA1 </span>
+    <span style="color:var(--text)">──┤ switch ├──</span>
+    <span style="color:var(--text-dim)"> GND</span><br>
+    <span style="color:var(--text-dim); font-size:0.8rem;">
+      &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+      Pin reads HIGH (open) / LOW (pressed)
+    </span>
+  </div>
+
+  <h4>Instantiation</h4>
+  <pre><code><span class="type">SwitchInput</span> btn(PA1);          <span class="comment">// Default 20ms debounce</span>
+<span class="type">SwitchInput</span> btn2(PB3, <span class="number">50</span>);      <span class="comment">// 50ms for noisier/cheaper switches</span></code></pre>
+
+  <h4>Constructor</h4>
+  <div class="method-block">
+    <div class="method-sig">SwitchInput(uint8_t pin, uint32_t debounce_ms = 20)</div>
+    <div class="method-param"><code>pin</code> &mdash; <code>uint8_t</code> &mdash; GPIO pin the switch is wired to (other leg to GND). Any GPIO pin on the Black Pill works.</div>
+    <div class="method-param"><code>debounce_ms</code> &mdash; <code>uint32_t</code> &mdash; debounce window in milliseconds. The reading must be stable for this long before a state change is accepted. Default 20ms; try 50ms for cheap switches.</div>
+  </div>
+
+  <h4>Methods</h4>
+
+  <div class="method-block">
+    <div class="method-sig">void begin()</div>
+    <div class="method-desc">Configure the pin as <code>INPUT_PULLUP</code>. Must be called once in <code>setup()</code> before any calls to <code>update()</code>.</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">void update()</div>
+    <div class="method-desc">Read the pin and run the debounce state machine. Call from <code>loop()</code>, NOT from the audio ISR. 5&ndash;20ms polling interval is ideal.</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">bool triggered()</div>
+    <div class="method-desc">
+      Returns <code>true</code> exactly once per confirmed press (falling edge after debounce), then clears. Subsequent calls return <code>false</code> until the next press. ISR-safe.
+    </div>
+    <div class="method-returns">Returns: <code>bool</code> &mdash; true on first call after a confirmed press</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">bool released()</div>
+    <div class="method-desc">
+      Returns <code>true</code> exactly once per confirmed release (rising edge after debounce), then clears. Useful for sustain-style envelopes that hold while pressed and release on lift. ISR-safe.
+    </div>
+    <div class="method-returns">Returns: <code>bool</code> &mdash; true on first call after a confirmed release</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">bool isHeld() const</div>
+    <div class="method-desc">
+      Returns the current debounced state. <code>true</code> = switch is currently held down. Use as a hard gate to sustain a signal while the button is pressed. ISR-safe.
+    </div>
+    <div class="method-returns">Returns: <code>bool</code> &mdash; true if switch is currently pressed</div>
+  </div>
+</div>
+
+<pre><code><span class="type">SwitchInput</span> btn(PA1);
+
+<span class="type">void</span> <span class="func">setup</span>() {
+    btn.<span class="func">begin</span>();              <span class="comment">// configure pin as INPUT_PULLUP</span>
+}
+
+<span class="type">void</span> <span class="func">loop</span>() {
+    btn.<span class="func">update</span>();             <span class="comment">// poll the switch, runs debounce</span>
+    <span class="func">delay</span>(<span class="number">10</span>);
+}
+
+<span class="comment">// In audio callback — one-shot envelope trigger on press:</span>
+<span class="keyword">if</span> (btn.<span class="func">triggered</span>()) {
+    env.<span class="func">trigger</span>();
+}
+
+<span class="comment">// Sustain while held, release on lift (requires an envelope</span>
+<span class="comment">// with a gate-style release method):</span>
+<span class="keyword">if</span> (btn.<span class="func">triggered</span>()) { env.<span class="func">trigger</span>(); }
+<span class="keyword">if</span> (btn.<span class="func">released</span>())  { env.<span class="func">release</span>(); }
+
+<span class="comment">// Hard gate — silence unless button is held:</span>
+<span class="type">float</span> gate = btn.<span class="func">isHeld</span>() ? <span class="number">1.0f</span> : <span class="number">0.0f</span>;
+<span class="type">float</span> out = osc.<span class="func">process</span>() * env.<span class="func">process</span>() * gate;</code></pre>
 
 <!-- ── AudioEngine ────────────────────────────────────────────────────────── -->
 <h3>AudioEngine <code>audio_engine.h / .cpp</code></h3>
