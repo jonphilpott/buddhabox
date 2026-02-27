@@ -25,6 +25,35 @@ float JUST_OFFSETS[] = {
   1.875f,
   2.0f
 };
+
+// Colour indices ordered from darkest/night-time (index 0) to
+// brightest/day-time (index 15).
+//
+// Darkness is driven primarily by the lower variable scale degree
+// (Re komal < Ga komal < Re < Ga) and secondarily by the upper
+// variable degree (Dha komal < Ni komal < Dha < Ni).
+//
+// Usage:
+//   int pos = map(lightValue, 0, 1023, 0, 15);
+//   colour.setColour(COLOUR_BY_BRIGHTNESS[pos]);
+static constexpr uint8_t COLOUR_BY_BRIGHTNESS[16] = {
+  0,   // Re komal + Dha komal — Phrygian flat-6, darkest
+  2,   // Re komal + Ni komal  — Phrygian flat-7, haunting
+  1,   // Re komal + Dha       — Phrygian, dark with major 6th
+  3,   // Re komal + Ni        — Phrygian with major 7th
+  8,   // Ga komal + Dha komal — minor flat-6, ominous
+  10,  // Ga komal + Ni komal  — minor blues, brooding
+  9,   // Ga komal + Dha       — natural minor (Aeolian)
+  11,  // Ga komal + Ni        — harmonic minor
+  4,   // Re + Dha komal       — minor pentatonic feel
+  6,   // Re + Ni komal        — Mixolydian, floating
+  5,   // Re + Dha             — major pentatonic
+  12,  // Ga + Dha komal       — major with dark 6th, tense
+  7,   // Re + Ni              — major with leading tone
+  14,  // Ga + Ni komal        — bright, slightly unresolved
+  13,  // Ga + Dha             — bright, Lydian-ish
+  15,  // Ga + Ni              — full major, brightest
+};
   
 
 class Colour {
@@ -46,7 +75,7 @@ class Colour {
     offsets_[1] = JUST_OFFSETS[bottom+1];  // note pick
     offsets_[2] = JUST_OFFSETS[5];         // ma
     offsets_[3] = JUST_OFFSETS[7];         // PA
-    offsets_[4] = JUST_OFFSETS[top+7];     // second note pick;
+    offsets_[4] = JUST_OFFSETS[top+8];     // second note pick (Dha komal→Ni)
     colour_ = c;
   }
 

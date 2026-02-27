@@ -455,8 +455,10 @@
 &nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">karplus.h</span> <span class="desc">&#x2500;&#x2500; Karplus-Strong plucked string synthesis</span><br>
 &nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">clock.h</span> <span class="desc">&#x2500;&#x2500; Sample-accurate tempo clock</span><br>
 &nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">midi_utils.h</span> <span class="desc">&#x2500;&#x2500; MIDI note &#x2192; frequency conversion</span><br>
+&nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">colour.h</span> <span class="desc">&#x2500;&#x2500; Just-intonation pentatonic scales &amp; melody generator</span><br>
 &nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">analog_input.h</span> <span class="desc">&#x2500;&#x2500; Smoothed ADC reader for sensors</span><br>
 &nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">switch_input.h</span> <span class="desc">&#x2500;&#x2500; Debounced switch with trigger/hold/release</span><br>
+&nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">mpr121_input.h</span> <span class="desc">&#x2500;&#x2500; MPR121 capacitive touch — 12-electrode driver</span><br>
 &nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">audio_engine.h</span> <span class="desc">&#x2500;&#x2500; I2S DMA engine (interface)</span><br>
 &nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">audio_engine.cpp</span> <span class="desc">&#x2500;&#x2500; I2S DMA engine (implementation)</span><br>
 &nbsp;&nbsp;&nbsp; &#x2514;&#x2500;&#x2500; <span class="file">main.cpp</span> <span class="desc">&#x2500;&#x2500; Example patch (filtered pink noise drone)</span>
@@ -1337,6 +1339,218 @@ osc.<span class="func">setFrequency</span>(<span class="func">midiToFreq</span>(
 <span class="comment">// D major scale</span>
 <span class="type">uint8_t</span> dMajor[] = {<span class="number">62</span>, <span class="number">64</span>, <span class="number">66</span>, <span class="number">67</span>, <span class="number">69</span>, <span class="number">71</span>, <span class="number">73</span>}; <span class="comment">// D E F# G A B C#</span></code></pre>
 
+<!-- ── Colour ───────────────────────────────────────────────────────────── -->
+<h3>Colour <code>colour.h</code></h3>
+
+<div class="module-card">
+  <h4>Class: Colour</h4>
+  <p>
+    A just-intonation pentatonic scale engine inspired by Indian classical
+    music theory (sargam). Manages a 5-note scale ("colour"), a root
+    frequency, and a 16-step melodic pattern. Provides
+    <code>getNote()</code> to convert a scale degree + octave to a
+    frequency in Hz suitable for passing directly to
+    <code>Oscillator::setFrequency()</code>.
+  </p>
+  <p>
+    Unlike equal temperament (where all intervals are irrational
+    approximations), just intonation uses pure integer ratios —
+    for example, the perfect fifth is exactly 3:2. This produces
+    intervals that beat less against each other in sustained drones and
+    pads, which is part of what gives BuddhaBox its characteristic warmth.
+  </p>
+
+  <h4>Just Intonation &amp; the JUST_OFFSETS Table</h4>
+  <p>
+    All frequencies are derived by multiplying a root frequency by one
+    of 13 ratio constants. These map to the Indian classical sargam note
+    names (SA, RE, GA, MA, PA, DHA, NI):
+  </p>
+  <table>
+    <tr>
+      <th>Index</th><th>Ratio</th><th>Sargam</th>
+      <th>Western equivalent</th>
+    </tr>
+    <tr><td>0</td><td>1.000</td><td>SA</td><td>Unison (root)</td></tr>
+    <tr><td>1</td><td>1.067</td><td>Re komal</td><td>Minor 2nd</td></tr>
+    <tr><td>2</td><td>1.125</td><td>Re</td><td>Major 2nd</td></tr>
+    <tr><td>3</td><td>1.200</td><td>Ga komal</td><td>Minor 3rd</td></tr>
+    <tr><td>4</td><td>1.250</td><td>Ga</td><td>Major 3rd</td></tr>
+    <tr><td>5</td><td>1.333</td><td>Ma</td><td>Perfect 4th</td></tr>
+    <tr><td>6</td><td>1.406</td><td>Ma tivra</td><td>Augmented 4th</td></tr>
+    <tr><td>7</td><td>1.500</td><td>Pa</td><td>Perfect 5th</td></tr>
+    <tr><td>8</td><td>1.600</td><td>Dha komal</td><td>Minor 6th</td></tr>
+    <tr><td>9</td><td>1.667</td><td>Dha</td><td>Major 6th</td></tr>
+    <tr><td>10</td><td>1.800</td><td>Ni komal</td><td>Minor 7th</td></tr>
+    <tr><td>11</td><td>1.875</td><td>Ni</td><td>Major 7th</td></tr>
+    <tr><td>12</td><td>2.000</td><td>SA&prime;</td><td>Octave</td></tr>
+  </table>
+
+  <h4>The 16 Colour Presets</h4>
+  <p>
+    <code>setColour()</code> picks a 5-note pentatonic scale from 16
+    presets (0&ndash;15). Each scale always contains SA (root), MA
+    (perfect 4th), and PA (perfect 5th) as fixed pillars. Two degrees
+    are variable:
+  </p>
+  <ul>
+    <li><strong>Degree 1</strong> &mdash; a lower variable note,
+      selected from Re komal, Re, Ga komal, or Ga
+      (controlled by <code>colour / 4</code>).</li>
+    <li><strong>Degree 4</strong> &mdash; an upper variable note,
+      selected from Dha komal, Dha, Ni komal, or Ni
+      (controlled by <code>colour % 4</code>).</li>
+  </ul>
+  <p>
+    The <strong>Brightness Rank</strong> column shows each colour's
+    position in <code>COLOUR_BY_BRIGHTNESS[]</code> — 0 is the darkest
+    (night), 15 is the brightest (full daylight).
+  </p>
+  <table>
+    <tr>
+      <th>Colour</th>
+      <th>Degree 1</th>
+      <th>Degree 4</th>
+      <th>Character</th>
+      <th>Brightness Rank</th>
+    </tr>
+    <tr><td>0</td><td>Re komal</td><td>Dha komal</td><td>Very dark, Phrygian flat-6</td><td>0</td></tr>
+    <tr><td>1</td><td>Re komal</td><td>Dha</td><td>Dark with major 6th</td><td>2</td></tr>
+    <tr><td>2</td><td>Re komal</td><td>Ni komal</td><td>Haunting, Phrygian flat-7</td><td>1</td></tr>
+    <tr><td>3</td><td>Re komal</td><td>Ni</td><td>Dark Phrygian with major 7th</td><td>3</td></tr>
+    <tr><td>4</td><td>Re</td><td>Dha komal</td><td>Minor pentatonic feel</td><td>8</td></tr>
+    <tr><td>5</td><td>Re</td><td>Dha</td><td>Major pentatonic</td><td>10</td></tr>
+    <tr><td>6</td><td>Re</td><td>Ni komal</td><td>Mixolydian, floating</td><td>9</td></tr>
+    <tr><td>7</td><td>Re</td><td>Ni</td><td>Major with leading tone</td><td>12</td></tr>
+    <tr><td>8</td><td>Ga komal</td><td>Dha komal</td><td>Minor flat-6, ominous</td><td>4</td></tr>
+    <tr><td>9</td><td>Ga komal</td><td>Dha</td><td>Natural minor (Aeolian)</td><td>6</td></tr>
+    <tr><td>10</td><td>Ga komal</td><td>Ni komal</td><td>Minor blues, brooding</td><td>5</td></tr>
+    <tr><td>11</td><td>Ga komal</td><td>Ni</td><td>Harmonic minor</td><td>7</td></tr>
+    <tr><td>12</td><td>Ga</td><td>Dha komal</td><td>Major with dark 6th, tense</td><td>11</td></tr>
+    <tr><td>13</td><td>Ga</td><td>Dha</td><td>Bright, Lydian-ish</td><td>14</td></tr>
+    <tr><td>14</td><td>Ga</td><td>Ni komal</td><td>Bright, slightly unresolved</td><td>13</td></tr>
+    <tr><td>15</td><td>Ga</td><td>Ni</td><td>Full major, brightest</td><td>15</td></tr>
+  </table>
+
+  <h4>COLOUR_BY_BRIGHTNESS</h4>
+  <p>
+    A compile-time constant array of all 16 colour indices sorted from
+    darkest / night-time (position 0) to brightest / day-time
+    (position 15). Use this to map a continuous value — such as a light
+    sensor reading — directly to a musically appropriate scale.
+  </p>
+  <pre><code><span class="comment">// Map LDR reading to a scale that matches the ambient light level:</span>
+<span class="type">int</span> pos = (<span class="type">int</span>)(lightSensor.<span class="func">readLDR</span>() * <span class="number">15.0f</span>);
+colour.<span class="func">setColour</span>(COLOUR_BY_BRIGHTNESS[pos]);</code></pre>
+
+  <h4>Note Numbering in getNote()</h4>
+  <p>
+    The <code>num</code> parameter to <code>getNote()</code> encodes
+    both a scale degree and an octave offset in a single integer:
+  </p>
+  <ul>
+    <li><code>num % 5</code> selects the scale degree (0&ndash;4 →
+      the 5 notes of the current colour).</li>
+    <li><code>num / 5</code> adds extra octaves above the base
+      <code>octave</code> argument.</li>
+  </ul>
+  <p>
+    For example with <code>octave = 2</code>:
+    num 0&ndash;4 gives the 5 notes at octave 2; num 5 is scale
+    degree 0 at octave 3 (root an octave higher); num 6 is degree 1
+    at octave 3, and so on. Setting <code>rmax = 6</code> in
+    <code>newMelody()</code> therefore spans one octave plus the
+    upper root — a compact, singable range.
+  </p>
+
+  <h4>Instantiation</h4>
+  <pre><code><span class="type">Colour</span> colour;    <span class="comment">// default: colour 0, root ≈ 38 Hz (scales up via octave)</span></code></pre>
+
+  <h4>Methods</h4>
+
+  <div class="method-block">
+    <div class="method-sig">void setColour(uint8_t colour)</div>
+    <div class="method-desc">
+      Select one of 16 pentatonic scale presets. Wraps with modulo 16
+      so any value is safe. Updates the internal 5-note ratio table
+      immediately — subsequent <code>getNote()</code> calls use the
+      new scale.
+    </div>
+    <div class="method-param"><code>colour</code> &mdash; <code>uint8_t</code> &mdash; scale preset index (0&ndash;15; wraps)</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">float getNote(uint8_t octave, uint8_t num)</div>
+    <div class="method-desc">
+      Convert a scale degree number to a frequency in Hz. The result
+      is ready to pass directly to <code>Oscillator::setFrequency()</code>.
+      Uses just intonation ratios — not equal temperament.
+    </div>
+    <div class="method-param"><code>octave</code> &mdash; <code>uint8_t</code> &mdash; base octave shift (powers of 2). Typical values: 2 (bass/mid), 3 (mid), 5 (high arp).</div>
+    <div class="method-param"><code>num</code> &mdash; <code>uint8_t</code> &mdash; note index: <code>num % 5</code> selects the scale degree (0&ndash;4), <code>num / 5</code> adds additional octaves.</div>
+    <div class="method-returns">Returns: <code>float</code> &mdash; frequency in Hz</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">void setRoot(float r)</div>
+    <div class="method-desc">
+      Set the root frequency in Hz. The default root is 38 Hz (a very
+      low D-ish tone). Because <code>getNote()</code> multiplies by
+      <code>1 &lt;&lt; octave</code>, the audible range is determined by
+      the <code>octave</code> argument — e.g. at octave 2 the root
+      sounds at 38 &times; 4 = 152 Hz.
+    </div>
+    <div class="method-param"><code>r</code> &mdash; <code>float</code> &mdash; root frequency in Hz</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">void newMelody(LFSR* rng, uint8_t rmax)</div>
+    <div class="method-desc">
+      Generate a new 16-step melodic pattern using the provided LFSR
+      random source. Step 0 is always 0 (root). Steps 1&ndash;14 are
+      random in <code>[0, rmax)</code>. Step 15 resolves to either 0
+      (root) or 3 (MA, the 4th) with equal probability, giving each
+      phrase a sense of harmonic arrival.
+    </div>
+    <div class="method-param"><code>rng</code> &mdash; <code>LFSR*</code> &mdash; pointer to the shared random number generator</div>
+    <div class="method-param"><code>rmax</code> &mdash; <code>uint8_t</code> &mdash; upper bound for random note indices. Controls melodic range: 5 = one octave, 6 = one octave + upper root, 10 = two octaves.</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">uint8_t getMelody(uint8_t idx)</div>
+    <div class="method-desc">
+      Read back a step from the current melody pattern. Wraps with
+      modulo 16. Use the return value as the <code>num</code> argument
+      to <code>getNote()</code>.
+    </div>
+    <div class="method-param"><code>idx</code> &mdash; <code>uint8_t</code> &mdash; step index (0&ndash;15; wraps)</div>
+    <div class="method-returns">Returns: <code>uint8_t</code> &mdash; note index for this step</div>
+  </div>
+</div>
+
+<pre><code><span class="type">Colour</span> colour;
+<span class="type">LFSR</span>   rng;
+
+<span class="type">void</span> <span class="func">setup</span>() {
+    colour.<span class="func">setColour</span>(<span class="number">6</span>);            <span class="comment">// major pentatonic (Re, Ma, Pa, Dha)</span>
+    colour.<span class="func">newMelody</span>(&amp;rng, <span class="number">6</span>);     <span class="comment">// 16-step melody, range ~1 octave</span>
+}
+
+<span class="comment">// In audio callback — play the melody step at clock tick:</span>
+<span class="keyword">if</span> (clock.<span class="func">process</span>()) {
+    <span class="type">uint8_t</span> step = clock.<span class="func">getTick</span>() % <span class="number">16</span>;
+    <span class="type">float</span> freq = colour.<span class="func">getNote</span>(<span class="number">2</span>, colour.<span class="func">getMelody</span>(step));
+    osc.<span class="func">setFrequency</span>(freq);
+    env.<span class="func">trigger</span>();
+}
+
+<span class="comment">// Generate a fresh scale and melody on an event (e.g. LDR threshold):</span>
+colour.<span class="func">setColour</span>(rng.<span class="func">nextRange</span>(<span class="number">0</span>, <span class="number">16</span>));
+colour.<span class="func">newMelody</span>(&amp;rng, <span class="number">6</span>);
+
+<span class="comment">// High-register arp note from the same scale:</span>
+arp.<span class="func">setFrequency</span>(colour.<span class="func">getNote</span>(<span class="number">5</span>, rng.<span class="func">nextRange</span>(<span class="number">0</span>, <span class="number">4</span>)));</code></pre>
+
 <!-- ── AnalogInput ────────────────────────────────────────────────────────── -->
 <h3>AnalogInput <code>analog_input.h</code></h3>
 
@@ -1502,6 +1716,181 @@ filter.<span class="func">setFrequency</span>(cutoff);</code></pre>
 <span class="comment">// Hard gate — silence unless button is held:</span>
 <span class="type">float</span> gate = btn.<span class="func">isHeld</span>() ? <span class="number">1.0f</span> : <span class="number">0.0f</span>;
 <span class="type">float</span> out = osc.<span class="func">process</span>() * env.<span class="func">process</span>() * gate;</code></pre>
+
+<!-- ── MPR121Input ─────────────────────────────────────────────────────────── -->
+<h3>MPR121Input <code>mpr121_input.h</code></h3>
+
+<div class="module-card">
+  <h4>Class: MPR121Input</h4>
+  <p>
+    Standalone I2C driver for the MPR121 12-electrode capacitive touch
+    controller. No external library is required — communicates directly
+    via Arduino's <code>Wire</code>. Provides the same
+    <code>triggered()</code> / <code>released()</code> /
+    <code>isHeld()</code> interface as <code>SwitchInput</code>, indexed
+    by electrode number (0&ndash;11).
+  </p>
+  <p>
+    The MPR121 handles touch detection, baseline tracking, and threshold
+    hysteresis entirely in hardware — no software debounce is needed.
+    Call <code>begin()</code> in <code>setup()</code>,
+    <code>update()</code> from <code>loop()</code>, and query the touch
+    methods from anywhere (including the audio callback).
+  </p>
+
+  <h4>How Capacitive Touch Works</h4>
+  <p>
+    Each electrode continuously measures capacitance. The chip maintains
+    a slowly-drifting baseline per electrode to track environmental
+    changes (temperature, humidity). A finger touch raises the
+    capacitance above the baseline by enough to cross the touch
+    threshold. When it falls back below the release threshold, a release
+    is registered. The gap between the two thresholds is the hysteresis
+    window — equivalent to the debounce window in <code>SwitchInput</code>.
+  </p>
+
+  <h4>Wiring (I2C)</h4>
+  <div style="font-family: monospace; background: var(--code-bg);
+              border: 1px solid var(--border); border-radius: 6px;
+              padding: 1rem; margin: 1rem 0; font-size: 0.9rem;
+              line-height: 2.0;">
+    <span style="color:var(--text-dim)">MPR121 VCC</span>
+    <span style="color:var(--text)"> ──────────────────</span>
+    <span style="color:var(--orange)"> 3.3V</span><br>
+    <span style="color:var(--text-dim)">MPR121 GND</span>
+    <span style="color:var(--text)"> ──────────────────</span>
+    <span style="color:var(--text-dim)"> GND</span><br>
+    <span style="color:var(--text-dim)">MPR121 SDA</span>
+    <span style="color:var(--text)"> ──[4.7kΩ to 3.3V]──</span>
+    <span style="color:var(--blue)"> PB9 </span>
+    <span style="color:var(--text-dim)">(I2C1 SDA)</span><br>
+    <span style="color:var(--text-dim)">MPR121 SCL</span>
+    <span style="color:var(--text)"> ──[4.7kΩ to 3.3V]──</span>
+    <span style="color:var(--blue)"> PB8 </span>
+    <span style="color:var(--text-dim)">(I2C1 SCL)</span><br>
+    <span style="color:var(--text-dim)">MPR121 ADD</span>
+    <span style="color:var(--text)"> ──────────────────</span>
+    <span style="color:var(--text-dim)"> GND → addr 0x5A (default)</span><br>
+    <span style="color:var(--text-dim); font-size:0.8rem;">
+      &nbsp;&nbsp;Pull-up resistors may already be present on your breakout board.
+    </span>
+  </div>
+
+  <h4>I2C Address Selection</h4>
+  <table style="border-collapse:collapse; font-size:0.9rem; margin:0.5rem 0 1rem 0;">
+    <tr>
+      <th style="border:1px solid var(--border); padding:0.4rem 0.8rem; background:var(--bg3); color:var(--text)">ADD pin</th>
+      <th style="border:1px solid var(--border); padding:0.4rem 0.8rem; background:var(--bg3); color:var(--text)">I2C Address</th>
+    </tr>
+    <tr>
+      <td style="border:1px solid var(--border); padding:0.4rem 0.8rem;">GND (default)</td>
+      <td style="border:1px solid var(--border); padding:0.4rem 0.8rem; color:var(--green);">0x5A</td>
+    </tr>
+    <tr>
+      <td style="border:1px solid var(--border); padding:0.4rem 0.8rem;">VCC</td>
+      <td style="border:1px solid var(--border); padding:0.4rem 0.8rem; color:var(--green);">0x5B</td>
+    </tr>
+    <tr>
+      <td style="border:1px solid var(--border); padding:0.4rem 0.8rem;">SDA</td>
+      <td style="border:1px solid var(--border); padding:0.4rem 0.8rem; color:var(--green);">0x5C</td>
+    </tr>
+    <tr>
+      <td style="border:1px solid var(--border); padding:0.4rem 0.8rem;">SCL</td>
+      <td style="border:1px solid var(--border); padding:0.4rem 0.8rem; color:var(--green);">0x5D</td>
+    </tr>
+  </table>
+
+  <h4>Instantiation</h4>
+  <pre><code><span class="type">MPR121Input</span> touch;                   <span class="comment">// address 0x5A, threshold 12/6</span>
+<span class="type">MPR121Input</span> touch(<span class="number">0x5B</span>);              <span class="comment">// alternate address</span>
+<span class="type">MPR121Input</span> touch(<span class="number">0x5A</span>, <span class="number">8</span>, <span class="number">4</span>);        <span class="comment">// more sensitive thresholds</span></code></pre>
+
+  <h4>Constructor</h4>
+  <div class="method-block">
+    <div class="method-sig">MPR121Input(uint8_t addr = 0x5A, uint8_t touch_thresh = 12, uint8_t release_thresh = 6)</div>
+    <div class="method-param"><code>addr</code> &mdash; <code>uint8_t</code> &mdash; I2C address, set by the ADD pin on the breakout board. Default 0x5A (ADD tied to GND).</div>
+    <div class="method-param"><code>touch_thresh</code> &mdash; <code>uint8_t</code> &mdash; Touch threshold, applied to all 12 electrodes. Higher = less sensitive. Default 12 is good for bare copper pads ~1 cm&sup2;. Reduce for thick overlays.</div>
+    <div class="method-param"><code>release_thresh</code> &mdash; <code>uint8_t</code> &mdash; Release threshold. Must be less than <code>touch_thresh</code>. The gap creates hysteresis to prevent chatter. Default 6.</div>
+  </div>
+
+  <h4>Methods</h4>
+
+  <div class="method-block">
+    <div class="method-sig">bool begin()</div>
+    <div class="method-desc">
+      Soft-resets the MPR121, configures the baseline filter, sets per-electrode thresholds, configures the analog front-end for 3.3V, and enables all 12 electrodes. Call once in <code>setup()</code>.
+      Avoid touching any electrode pads during <code>begin()</code> — the chip captures its initial baseline immediately on startup.
+    </div>
+    <div class="method-returns">Returns: <code>bool</code> &mdash; true if the chip responded on the I2C bus; false if not found (check wiring)</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">void update()</div>
+    <div class="method-desc">
+      Reads the 12-bit touch status register from the chip and updates per-electrode trigger/release flags. Call from <code>loop()</code> at ~10ms intervals (100&nbsp;Hz). <strong>Do not call from the audio callback</strong> — Wire I2C transactions block for several hundred microseconds.
+    </div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">bool triggered(uint8_t electrode)</div>
+    <div class="method-desc">
+      Returns <code>true</code> exactly once per touch event on the given electrode (0&ndash;11), then clears. Safe to call from the audio callback (ISR context).
+    </div>
+    <div class="method-param"><code>electrode</code> &mdash; <code>uint8_t</code> &mdash; Electrode index (0–11)</div>
+    <div class="method-returns">Returns: <code>bool</code> &mdash; true on first call after a touch; false otherwise</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">bool released(uint8_t electrode)</div>
+    <div class="method-desc">
+      Returns <code>true</code> exactly once per release event on the given electrode (0&ndash;11), then clears. Safe to call from the audio callback (ISR context).
+    </div>
+    <div class="method-param"><code>electrode</code> &mdash; <code>uint8_t</code> &mdash; Electrode index (0–11)</div>
+    <div class="method-returns">Returns: <code>bool</code> &mdash; true on first call after a release; false otherwise</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">bool isHeld(uint8_t electrode) const</div>
+    <div class="method-desc">
+      Returns the current touch state of the given electrode. <code>true</code> = currently being touched. Useful for gate-style control: hold a signal open while a finger is on the pad. Safe to call from the audio callback (ISR context).
+    </div>
+    <div class="method-param"><code>electrode</code> &mdash; <code>uint8_t</code> &mdash; Electrode index (0–11)</div>
+    <div class="method-returns">Returns: <code>bool</code> &mdash; true if the electrode is currently touched</div>
+  </div>
+</div>
+
+<pre><code><span class="type">MPR121Input</span> touch;
+
+<span class="type">void</span> <span class="func">setup</span>() {
+    <span class="keyword">if</span> (!touch.<span class="func">begin</span>()) {
+        Serial.<span class="func">println</span>(<span class="string">"MPR121 not found!"</span>);
+        <span class="keyword">while</span> (<span class="number">1</span>) {}    <span class="comment">// halt</span>
+    }
+}
+
+<span class="type">void</span> <span class="func">loop</span>() {
+    touch.<span class="func">update</span>();         <span class="comment">// reads chip over I2C, updates flags</span>
+    <span class="func">delay</span>(<span class="number">10</span>);
+}
+
+<span class="comment">// In audio callback — electrode 0 triggers an envelope attack:</span>
+<span class="keyword">if</span> (touch.<span class="func">triggered</span>(<span class="number">0</span>)) {
+    env.<span class="func">trigger</span>();
+}
+
+<span class="comment">// Sustain while held, release on lift (electrodes 0 and 1):</span>
+<span class="keyword">if</span> (touch.<span class="func">triggered</span>(<span class="number">1</span>)) { env.<span class="func">trigger</span>(); }
+<span class="keyword">if</span> (touch.<span class="func">released</span>(<span class="number">1</span>))  { env.<span class="func">release</span>(); }
+
+<span class="comment">// 12 electrodes as a chord keyboard — one envelope per pad:</span>
+<span class="keyword">for</span> (<span class="type">uint8_t</span> i = <span class="number">0</span>; i &lt; <span class="number">12</span>; i++) {
+    <span class="keyword">if</span> (touch.<span class="func">triggered</span>(i)) { voices[i].<span class="func">trigger</span>(); }
+    <span class="keyword">if</span> (touch.<span class="func">released</span>(i))  { voices[i].<span class="func">release</span>(); }
+}
+
+<span class="comment">// Hard gate — pad 5 as a kill switch:</span>
+<span class="type">float</span> gate = touch.<span class="func">isHeld</span>(<span class="number">5</span>) ? <span class="number">1.0f</span> : <span class="number">0.0f</span>;
+<span class="type">float</span> out  = osc.<span class="func">process</span>() * env.<span class="func">process</span>() * gate;</code></pre>
 
 <!-- ── AudioEngine ────────────────────────────────────────────────────────── -->
 <h3>AudioEngine <code>audio_engine.h / .cpp</code></h3>

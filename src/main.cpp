@@ -251,12 +251,14 @@ void mixItUp() {
 
   float ldrVal = lightSensor.readLDR();
 
-  int mColourRangeStart = ldrVal > 0.5 ? 7 : 0;
-  int mColourRangeEnd = mColourRangeStart + 8;
+  uint8_t colour_start = (uint8_t) ldrVal * 4.0f;
+  uint8_t scale = colour_start + rng.nextRange(0, 3);
 
-  int mColourMelodyRange = ldrVal > 0.5 ? colour_melody_range : 4;
+  if (scale > 15) {
+    scale = 15;
+  }
   
-  colour.setColour(rng.nextRange(mColourRangeStart, mColourRangeEnd));
+  colour.setColour(scale);
   colour.newMelody(&rng, colour_melody_range);
   
   // pick a new tempo
