@@ -138,6 +138,25 @@ constexpr uint8_t TARGETLIMIT  = 0x7F;
 // Soft reset: write the magic value 0x63 to reset all registers.
 constexpr uint8_t SOFTRESET = 0x80;
 
+// Out-of-Range Status registers.
+// A set bit means that electrode's auto-configuration failed — the
+// charge current could not be calibrated within LOWLIMIT..UPLIMIT.
+// That electrode will be unresponsive until auto-config succeeds or
+// is disabled.
+//   OORS_L bits 7-0: ELE7-ELE0
+//   OORS_H bits 3-0: ELE11-ELE8
+constexpr uint8_t OORS_L = 0x02;
+constexpr uint8_t OORS_H = 0x03;
+
+// Baseline Value registers, one per electrode (ELE0=0x1E, stride 1).
+// Each register holds the upper 8 bits of the 10-bit baseline value.
+// Multiply by 4 to recover the actual baseline count.
+constexpr uint8_t BASELINE_0 = 0x1E;
+
+// Filtered data registers, two bytes per electrode (ELE0=0x04, stride 2).
+// The 10-bit filtered reading = (high_byte << 2) | (low_byte & 0x03).
+constexpr uint8_t FILTERED_L_0 = 0x04;
+
 } // namespace mpr121_reg
 
 // ── MPR121Input ───────────────────────────────────────────────────────────
@@ -206,6 +225,11 @@ public:
    *   }
    */
   bool begin() {
+    // Set pins explicitly before begin() — Wire defaults may vary
+    // across STM32 core versions. PB9=SDA, PB8=SCL is the I2C1
+    // alternate mapping on the Black Pill.
+    Wire.setSDA(PB9);
+    Wire.setSCL(PB8);
     Wire.begin();
 
     // Step 1: Soft reset. Writing 0x63 to register 0x80 resets all
@@ -414,6 +438,66 @@ public:
    *   float gate = touch.isHeld(3) ? 1.0f : 0.0f;
    *   float out = osc.process() * env.process() * gate;
    */
+  /**
+   * Print a diagnostic report over Serial for all 12 electrodes.
+   *
+   * Reports for each electrode:
+   *   - OOR (Out of Range): whether auto-configuration failed. If true,
+   *     the electrode will not respond to touch until auto-config is
+   *     re-run or disabled.
+   *   - Baseline: the 10-bit reference level the chip calibrated to.
+   *     A value of 0 or very high usually confirms auto-config failure.
+   *   - Filtered: the current 10-bit filtered reading from the electrode.
+   *     Delta = Baseline - Filtered; a touch produces a negative delta
+   *     that crosses the release/touch thresholds.
+   *
+   * Call from setup() after begin(), not from the audio callback.
+   *
+   * Example:
+   *   if (!touch.begin()) { Serial.println("not found"); }
+   *   touch.diagnosticDump();
+   */
+  void diagnosticDump() {
+    uint8_t oors_l = readReg(mpr121_reg::OORS_L);
+    uint8_t oors_h = readReg(mpr121_reg::OORS_H);
+
+    Serial.println("MPR121 Diagnostics:");
+    Serial.println("ELE  OOR  Baseline  Filtered  Delta");
+
+    for (uint8_t i = 0; i < NUM_ELECTRODES; i++) {
+      // OOR bit: low byte covers ELE0-7, high byte covers ELE8-11
+      bool oor = (i < 8) ? ((oors_l >> i) & 1)
+                         : ((oors_h >> (i - 8)) & 1);
+
+      // Baseline: one byte per electrode, upper 8 bits of 10-bit value
+      uint16_t baseline = (uint16_t)readReg(mpr121_reg::BASELINE_0 + i)
+                          << 2;
+
+      // Filtered: two bytes per electrode (little-endian 10-bit value)
+      uint8_t filt_l = readReg(mpr121_reg::FILTERED_L_0 + i * 2);
+      uint8_t filt_h = readReg(mpr121_reg::FILTERED_L_0 + i * 2 + 1);
+      uint16_t filtered = ((uint16_t)(filt_h & 0x03) << 8) | filt_l;
+
+      int16_t delta = (int16_t)baseline - (int16_t)filtered;
+
+      Serial.print("  ");
+      if (i < 10) Serial.print(" ");
+      Serial.print(i);
+      Serial.print("    ");
+      Serial.print(oor ? "Y" : "N");
+      Serial.print("    ");
+      if (baseline < 100)  Serial.print(" ");
+      if (baseline < 1000) Serial.print(" ");
+      Serial.print(baseline);
+      Serial.print("      ");
+      if (filtered < 100)  Serial.print(" ");
+      if (filtered < 1000) Serial.print(" ");
+      Serial.print(filtered);
+      Serial.print("      ");
+      Serial.println(delta);
+    }
+  }
+
   bool isHeld(uint8_t electrode) const {
     if (electrode >= NUM_ELECTRODES) return false;
     return (current_touched_ >> electrode) & 1;

@@ -459,6 +459,7 @@
 &nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">analog_input.h</span> <span class="desc">&#x2500;&#x2500; Smoothed ADC reader for sensors</span><br>
 &nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">switch_input.h</span> <span class="desc">&#x2500;&#x2500; Debounced switch with trigger/hold/release</span><br>
 &nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">mpr121_input.h</span> <span class="desc">&#x2500;&#x2500; MPR121 capacitive touch — 12-electrode driver</span><br>
+&nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">led.h</span> <span class="desc">&#x2500;&#x2500; Onboard user LED driver (PC13, non-blocking blink)</span><br>
 &nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">audio_engine.h</span> <span class="desc">&#x2500;&#x2500; I2S DMA engine (interface)</span><br>
 &nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">audio_engine.cpp</span> <span class="desc">&#x2500;&#x2500; I2S DMA engine (implementation)</span><br>
 &nbsp;&nbsp;&nbsp; &#x2514;&#x2500;&#x2500; <span class="file">main.cpp</span> <span class="desc">&#x2500;&#x2500; Example patch (filtered pink noise drone)</span>
@@ -1891,6 +1892,96 @@ filter.<span class="func">setFrequency</span>(cutoff);</code></pre>
 <span class="comment">// Hard gate — pad 5 as a kill switch:</span>
 <span class="type">float</span> gate = touch.<span class="func">isHeld</span>(<span class="number">5</span>) ? <span class="number">1.0f</span> : <span class="number">0.0f</span>;
 <span class="type">float</span> out  = osc.<span class="func">process</span>() * env.<span class="func">process</span>() * gate;</code></pre>
+
+<!-- ── UserLED ─────────────────────────────────────────────────────────── -->
+<h3>UserLED <code>led.h</code></h3>
+
+<div class="module-card">
+  <h4>Class: UserLED</h4>
+  <p>
+    Driver for the onboard user LED on the Black Pill (pin <code>PC13</code>).
+    The LED is <strong>active LOW</strong> — the GPIO pin is pulled to GND to
+    illuminate it and to 3.3V to extinguish it. Supports instant on/off/toggle
+    and a non-blocking blink driven by calling <code>update()</code> from
+    <code>loop()</code>.
+  </p>
+  <p>
+    <strong>Do not call from the audio callback</strong> — <code>digitalWrite()</code>
+    and <code>millis()</code> are not ISR-safe and will cause audio glitches.
+  </p>
+
+  <h4>Instantiation</h4>
+  <pre><code><span class="type">UserLED</span> led;   <span class="comment">// no arguments — pin PC13 is fixed</span></code></pre>
+
+  <h4>Methods</h4>
+
+  <div class="method-block">
+    <div class="method-sig">void begin()</div>
+    <div class="method-desc">Configures PC13 as an output and turns the LED off. Call once from <code>setup()</code>.</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">void on()</div>
+    <div class="method-desc">Turns the LED on immediately and cancels any active blink.</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">void off()</div>
+    <div class="method-desc">Turns the LED off immediately and cancels any active blink.</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">void toggle()</div>
+    <div class="method-desc">Flips the LED between on and off and cancels any active blink. Useful for event-driven toggling (e.g. one button press = on, next = off).</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">void blink(uint32_t interval_ms = 500)</div>
+    <div class="method-desc">Starts a non-blocking blink. The LED alternates on/off every <code>interval_ms</code> milliseconds. Requires <code>update()</code> to be called from <code>loop()</code>.</div>
+    <div class="method-param"><code>interval_ms</code> &mdash; half-period in ms (LED is on for this long, then off for this long). Default: 500&nbsp;ms (1&nbsp;Hz). Range: 1&ndash;2<sup>32</sup>&nbsp;ms.</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">void update()</div>
+    <div class="method-desc">Services the non-blocking blink timer. Call once per <code>loop()</code> iteration. Returns immediately if blinking is not active — always safe to call.</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">bool isBlinking()</div>
+    <div class="method-desc">Returns <code>true</code> if a blink is currently running (i.e. <code>blink()</code> was called and has not been cancelled by <code>on()</code>, <code>off()</code>, or <code>toggle()</code>).</div>
+    <div class="method-returns">Returns: bool</div>
+  </div>
+
+  <h4>Example</h4>
+<pre><code><span class="keyword">#include</span> <span class="string">"led.h"</span>
+<span class="keyword">#include</span> <span class="string">"switch_input.h"</span>
+<span class="keyword">#include</span> <span class="string">"audio_engine.h"</span>
+
+<span class="type">UserLED</span>    led;
+<span class="type">SwitchInput</span> btn(PA1);
+
+<span class="type">void</span> <span class="func">setup</span>() {
+    led.<span class="func">begin</span>();
+    btn.<span class="func">begin</span>();
+    led.<span class="func">blink</span>(<span class="number">100</span>);   <span class="comment">// Fast blink during audio init</span>
+    <span class="type">AudioEngine</span>::<span class="func">begin</span>();
+    led.<span class="func">off</span>();        <span class="comment">// Solid off once running</span>
+}
+
+<span class="type">void</span> <span class="func">loop</span>() {
+    led.<span class="func">update</span>();
+    btn.<span class="func">update</span>();
+
+    <span class="comment">// Button toggles a 500 ms heartbeat blink on/off</span>
+    <span class="keyword">if</span> (btn.<span class="func">triggered</span>()) {
+        <span class="keyword">if</span> (led.<span class="func">isBlinking</span>()) {
+            led.<span class="func">off</span>();
+        } <span class="keyword">else</span> {
+            led.<span class="func">blink</span>(<span class="number">500</span>);
+        }
+    }
+}</code></pre>
+</div>
 
 <!-- ── AudioEngine ────────────────────────────────────────────────────────── -->
 <h3>AudioEngine <code>audio_engine.h / .cpp</code></h3>
