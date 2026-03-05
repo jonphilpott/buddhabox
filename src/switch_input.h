@@ -242,8 +242,8 @@ public:
   bool isHeld() const { return debounced_state_; }
 
 private:
-  uint8_t pin_;            // GPIO pin number
-  uint32_t debounce_ms_;   // Debounce window in milliseconds
+  uint8_t pin_;          // GPIO pin number
+  uint32_t debounce_ms_; // Debounce window in milliseconds
 
   // Debounced (accepted) state: true = pressed. Updated only after
   // the raw reading has been stable for debounce_ms_.

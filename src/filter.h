@@ -175,11 +175,11 @@ public:
   void clear() { lp_ = hp_ = bp_ = 0.0f; }
 
 private:
-  float f_ = 0.0f;        // Frequency coefficient (controls cutoff)
-  float q_ = 0.0f;        // Resonance amount (stored for reference)
-  float damp_ = 2.0f;     // Damping factor (inverse of resonance)
-  float lp_ = 0.0f;       // Lowpass output state
-  float hp_ = 0.0f;       // Highpass output state
-  float bp_ = 0.0f;       // Bandpass output state
-  float lastHz_ = -1.0f;  // Cached cutoff frequency for change detection
+  float f_ = 0.0f;       // Frequency coefficient (controls cutoff)
+  float q_ = 0.0f;       // Resonance amount (stored for reference)
+  float damp_ = 2.0f;    // Damping factor (inverse of resonance)
+  float lp_ = 0.0f;      // Lowpass output state
+  float hp_ = 0.0f;      // Highpass output state
+  float bp_ = 0.0f;      // Bandpass output state
+  float lastHz_ = -1.0f; // Cached cutoff frequency for change detection
 };

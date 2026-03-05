@@ -109,7 +109,7 @@ constexpr uint8_t FDLT = 0x35; // Filter delay count, touched state
 // Per-electrode touch and release thresholds.
 // Registers are interleaved: TOUCHTH_0=0x41, RELEASETH_0=0x42,
 //   TOUCHTH_1=0x43, RELEASETH_1=0x44, ... stride = 2 per electrode.
-constexpr uint8_t TOUCHTH_0   = 0x41;
+constexpr uint8_t TOUCHTH_0 = 0x41;
 constexpr uint8_t RELEASETH_0 = 0x42;
 
 // Debounce register. Upper nibble = release debounce, lower = touch.
@@ -120,7 +120,7 @@ constexpr uint8_t DEBOUNCE = 0x5B;
 // CONFIG1: charge/discharge current for the sensing circuit.
 // CONFIG2: charge time, sample frequency (ESI field).
 constexpr uint8_t CONFIG1 = 0x5C;
-constexpr uint8_t CONFIG2  = 0x5D;
+constexpr uint8_t CONFIG2 = 0x5D;
 
 // Electrode Configuration Register.
 // Write 0x00 to enter stop mode (required before changing config).
@@ -130,10 +130,10 @@ constexpr uint8_t ECR = 0x5E;
 // Auto-configuration: the chip measures each electrode's parasitics
 // and adjusts charge current automatically. The UP/LOW/TARGET limits
 // describe the target range as a fraction of the supply voltage.
-constexpr uint8_t AUTOCONFIG0  = 0x7B;
-constexpr uint8_t UPLIMIT      = 0x7D;
-constexpr uint8_t LOWLIMIT     = 0x7E;
-constexpr uint8_t TARGETLIMIT  = 0x7F;
+constexpr uint8_t AUTOCONFIG0 = 0x7B;
+constexpr uint8_t UPLIMIT = 0x7D;
+constexpr uint8_t LOWLIMIT = 0x7E;
+constexpr uint8_t TARGETLIMIT = 0x7F;
 
 // Soft reset: write the magic value 0x63 to reset all registers.
 constexpr uint8_t SOFTRESET = 0x80;
@@ -189,13 +189,10 @@ public:
    *   MPR121Input touch;              // 0x5A, threshold 12/6
    *   MPR121Input touch(0x5B, 8, 4); // alternate address, sensitive
    */
-  MPR121Input(uint8_t addr = 0x5A,
-              uint8_t touch_thresh = 12,
+  MPR121Input(uint8_t addr = 0x5A, uint8_t touch_thresh = 12,
               uint8_t release_thresh = 6)
-      : addr_(addr),
-        touch_thresh_(touch_thresh),
-        release_thresh_(release_thresh),
-        current_touched_(0) {
+      : addr_(addr), touch_thresh_(touch_thresh),
+        release_thresh_(release_thresh), current_touched_(0) {
     for (uint8_t i = 0; i < NUM_ELECTRODES; i++) {
       trigger_flags_[i] = false;
       release_flags_[i] = false;
@@ -312,8 +309,8 @@ public:
     // AUTOCONFIG0 = 0x0B: enable both auto-config and auto-reconfig.
     // Auto-reconfig re-runs configuration on any electrode that fails.
     writeReg(mpr121_reg::AUTOCONFIG0, 0x0B);
-    writeReg(mpr121_reg::UPLIMIT,     200);
-    writeReg(mpr121_reg::LOWLIMIT,    130);
+    writeReg(mpr121_reg::UPLIMIT, 200);
+    writeReg(mpr121_reg::LOWLIMIT, 130);
     writeReg(mpr121_reg::TARGETLIMIT, 180);
 
     // Step 8: Enable all 12 electrodes and start sensing.
@@ -389,7 +386,8 @@ public:
    *   if (touch.triggered(0)) { env.trigger(); }
    */
   bool triggered(uint8_t electrode) {
-    if (electrode >= NUM_ELECTRODES) return false;
+    if (electrode >= NUM_ELECTRODES)
+      return false;
     if (trigger_flags_[electrode]) {
       trigger_flags_[electrode] = false;
       return true;
@@ -412,7 +410,8 @@ public:
    *   if (touch.released(0))  { env.release(); }
    */
   bool released(uint8_t electrode) {
-    if (electrode >= NUM_ELECTRODES) return false;
+    if (electrode >= NUM_ELECTRODES)
+      return false;
     if (release_flags_[electrode]) {
       release_flags_[electrode] = false;
       return true;
@@ -466,12 +465,10 @@ public:
 
     for (uint8_t i = 0; i < NUM_ELECTRODES; i++) {
       // OOR bit: low byte covers ELE0-7, high byte covers ELE8-11
-      bool oor = (i < 8) ? ((oors_l >> i) & 1)
-                         : ((oors_h >> (i - 8)) & 1);
+      bool oor = (i < 8) ? ((oors_l >> i) & 1) : ((oors_h >> (i - 8)) & 1);
 
       // Baseline: one byte per electrode, upper 8 bits of 10-bit value
-      uint16_t baseline = (uint16_t)readReg(mpr121_reg::BASELINE_0 + i)
-                          << 2;
+      uint16_t baseline = (uint16_t)readReg(mpr121_reg::BASELINE_0 + i) << 2;
 
       // Filtered: two bytes per electrode (little-endian 10-bit value)
       uint8_t filt_l = readReg(mpr121_reg::FILTERED_L_0 + i * 2);
@@ -481,17 +478,22 @@ public:
       int16_t delta = (int16_t)baseline - (int16_t)filtered;
 
       Serial.print("  ");
-      if (i < 10) Serial.print(" ");
+      if (i < 10)
+        Serial.print(" ");
       Serial.print(i);
       Serial.print("    ");
       Serial.print(oor ? "Y" : "N");
       Serial.print("    ");
-      if (baseline < 100)  Serial.print(" ");
-      if (baseline < 1000) Serial.print(" ");
+      if (baseline < 100)
+        Serial.print(" ");
+      if (baseline < 1000)
+        Serial.print(" ");
       Serial.print(baseline);
       Serial.print("      ");
-      if (filtered < 100)  Serial.print(" ");
-      if (filtered < 1000) Serial.print(" ");
+      if (filtered < 100)
+        Serial.print(" ");
+      if (filtered < 1000)
+        Serial.print(" ");
       Serial.print(filtered);
       Serial.print("      ");
       Serial.println(delta);
@@ -499,14 +501,15 @@ public:
   }
 
   bool isHeld(uint8_t electrode) const {
-    if (electrode >= NUM_ELECTRODES) return false;
+    if (electrode >= NUM_ELECTRODES)
+      return false;
     return (current_touched_ >> electrode) & 1;
   }
 
 private:
-  uint8_t  addr_;           // I2C bus address (0x5A–0x5D)
-  uint8_t  touch_thresh_;   // Touch threshold applied to all electrodes
-  uint8_t  release_thresh_; // Release threshold applied to all electrodes
+  uint8_t addr_;           // I2C bus address (0x5A–0x5D)
+  uint8_t touch_thresh_;   // Touch threshold applied to all electrodes
+  uint8_t release_thresh_; // Release threshold applied to all electrodes
 
   // 12-bit touch state: bit N = 1 means electrode N is currently
   // touched. Updated by update(), read by isHeld().

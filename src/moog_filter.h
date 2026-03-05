@@ -188,7 +188,7 @@ public:
     //
     // This is identical to charging four RC circuits in series — each one
     // smooths the output of the previous stage a little more.
-    s_[0] += g_ * (x     - s_[0]);
+    s_[0] += g_ * (x - s_[0]);
     s_[1] += g_ * (s_[0] - s_[1]);
     s_[2] += g_ * (s_[1] - s_[2]);
     s_[3] += g_ * (s_[2] - s_[3]);

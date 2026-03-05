@@ -118,7 +118,6 @@ public:
     return smoothed_ / 4095.0f;
   }
 
-
   /*
    * tweaked based on actual read values
    */

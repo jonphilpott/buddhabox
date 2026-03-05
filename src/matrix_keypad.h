@@ -111,8 +111,7 @@ public:
    *   MatrixKeypad pad(rows, cols);        // 20ms debounce
    *   MatrixKeypad pad(rows, cols, 30);    // 30ms for membrane pads
    */
-  MatrixKeypad(const uint8_t row_pins[ROWS],
-               const uint8_t col_pins[COLS],
+  MatrixKeypad(const uint8_t row_pins[ROWS], const uint8_t col_pins[COLS],
                uint32_t debounce_ms = 20)
       : debounce_ms_(debounce_ms) {
     for (uint8_t i = 0; i < ROWS; i++)
@@ -120,11 +119,11 @@ public:
     for (uint8_t i = 0; i < COLS; i++)
       col_pins_[i] = col_pins[i];
     for (uint8_t i = 0; i < NUM_KEYS; i++) {
-      raw_state_[i]       = false;
+      raw_state_[i] = false;
       debounced_state_[i] = false;
-      last_change_ms_[i]  = 0;
-      trigger_flags_[i]   = false;
-      release_flags_[i]   = false;
+      last_change_ms_[i] = 0;
+      trigger_flags_[i] = false;
+      release_flags_[i] = false;
     }
   }
 
@@ -194,12 +193,12 @@ public:
         // Active-low: column goes LOW when a switch in this row is
         // pressed. Invert so that pressed == true.
         bool pressed = (digitalRead(col_pins_[c]) == LOW);
-        uint8_t key  = r * COLS + c; // Flat index 0–15
+        uint8_t key = r * COLS + c; // Flat index 0–15
 
         // Debounce step A: detect raw state changes and reset timer.
         // Any further bounce resets the timer, extending the window.
         if (pressed != raw_state_[key]) {
-          raw_state_[key]     = pressed;
+          raw_state_[key] = pressed;
           last_change_ms_[key] = now;
         }
 
@@ -305,9 +304,9 @@ public:
   }
 
 private:
-  uint8_t  row_pins_[ROWS];  // GPIO pin numbers for the 4 row wires
-  uint8_t  col_pins_[COLS];  // GPIO pin numbers for the 4 column wires
-  uint32_t debounce_ms_;     // Debounce window in milliseconds
+  uint8_t row_pins_[ROWS]; // GPIO pin numbers for the 4 row wires
+  uint8_t col_pins_[COLS]; // GPIO pin numbers for the 4 column wires
+  uint32_t debounce_ms_;   // Debounce window in milliseconds
 
   // Raw (un-debounced) reading from the most recent scan pass.
   // May still be mid-bounce; never used directly in application code.

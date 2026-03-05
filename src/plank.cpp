@@ -16,33 +16,28 @@
  *   5. Implement loop() — poll sensors, update non-blocking drivers.
  */
 
-#include <Arduino.h>
-#include <Wire.h>
 #include "audio_engine.h"
+#include "colour.h"
+#include "delay.h"
 #include "dsp_common.h"
+#include "filter.h"
+#include "lfo.h"
+#include "moog_filter.h"
 #include "mpr121_input.h"
 #include "oscillator.h"
-#include "colour.h"
-#include "moog_filter.h"
-#include "lfo.h"
-#include "filter.h"
-#include "delay.h"
 #include "triggered_osc.h"
+#include <Arduino.h>
+#include <Wire.h>
 
 MPR121Input touch;
-
-
-
 
 // ============================================================
 // Patch Parameters
 // ============================================================
 
-
 // ============================================================
 // DSP Objects & Runtime State
 // ============================================================
-
 
 Colour colour;
 SVFilter filter;
@@ -60,11 +55,11 @@ void audioCallback(int16_t *buffer, uint16_t length) {
   for (uint16_t i = 0; i < length; i += 2) {
     float sample = 0;
     float num_active = 0;
-    for (int j = 0; j < 12 ; j++) {
+    for (int j = 0; j < 12; j++) {
       TriggeredOsc *t = &oscs[j];
 
       t->setFrequency(colour.getNote(3, j));
-      
+
       if (touch.triggered(j)) {
         t->trigger();
       }
@@ -78,14 +73,12 @@ void audioCallback(int16_t *buffer, uint16_t length) {
       }
     }
 
-    
     float fco = colour.getNote(4, 0) + (lfo.process() * 150.0f);
 
-    
     filter.setFrequency(fco);
 
     sample = sample * 0.5f;
-    
+
     filter.process(sample);
     sample = filter.lowpass();
 
@@ -94,11 +87,10 @@ void audioCallback(int16_t *buffer, uint16_t length) {
 
     sample = (sample + delayed) * 0.33f;
 
-    
     sample = softclip(sample, 1.0f);
     int16_t s = (int16_t)(sample * 32000.0f);
-    buffer[i]     = s;  // left channel
-    buffer[i + 1] = s;  // right channel
+    buffer[i] = s;     // left channel
+    buffer[i + 1] = s; // right channel
   }
 }
 
@@ -130,7 +122,7 @@ void setup() {
   if (!touch.begin()) {
     Serial.println("MPR121 not found!");
   }
-  delay(200);  // allow MPR121 filter pipeline to fill before dumping
+  delay(200); // allow MPR121 filter pipeline to fill before dumping
   touch.diagnosticDump();
 
   colour.setRoot(NOTE_C2 + 2);
@@ -143,10 +135,9 @@ void loop() {
   delay(10);
   touch.update();
 
-  for (int i = 0 ; i < 12 ; i++) {
+  for (int i = 0; i < 12; i++) {
     if (touch.isHeld(i)) {
       Serial.println(i);
     }
   }
-  
 }

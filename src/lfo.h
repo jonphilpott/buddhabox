@@ -148,8 +148,7 @@ public:
         cached_ = phase_ < 0.5f ? 1.0f : -1.0f;
         break;
       case Waveform::TRIANGLE:
-        cached_ =
-            phase_ < 0.5f ? 4.0f * phase_ - 1.0f : 3.0f - 4.0f * phase_;
+        cached_ = phase_ < 0.5f ? 4.0f * phase_ - 1.0f : 3.0f - 4.0f * phase_;
         break;
       }
 

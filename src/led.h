@@ -173,7 +173,7 @@ public:
   bool isBlinking() const { return blinking_; }
 
 private:
-  bool blinking_;      // Whether non-blocking blink is active
-  uint32_t interval_;  // Blink half-period in milliseconds
+  bool blinking_;       // Whether non-blocking blink is active
+  uint32_t interval_;   // Blink half-period in milliseconds
   uint32_t lastToggle_; // millis() timestamp of last state change
 };
