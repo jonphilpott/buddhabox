@@ -24,14 +24,147 @@
 // to let the patch evolve over time.
 // ============================================================
 
-// global output scale
+// Ticks per bar — with a 4/4 clock at 8th-note resolution, one bar = 8 ticks
+#define BARS (8)
+
+// ── Output stage ─────────────────────────────────────────────
+
+// Scales the final float sample into the 16-bit integer range
 float output_scale = 32000.0f;
 
-// global gain
+// Master volume multiplier applied just before output conversion
 float gain = 1.0f;
 
-// where to set the saturation clip point
+// Soft saturation threshold; signals above this get gently compressed
 float softclip_knee = 1.0f;
+
+// Final lowpass cutoff to roll off harshness in the top frequencies (Hz)
+float output_lpf_freq = 5000.0f;
+
+// ── Mix gains ─────────────────────────────────────────────────
+
+// How much each voice contributes to the mix (0 = silent, 1 = full scale)
+float gain_bass    = 0.115f;
+float gain_tung    = 0.215f;
+float gain_saw     = 0.57f;
+float gain_terry   = 0.172f;
+float gain_tanpura = 0.172f;
+
+// Noise level is LFO-modulated slowly between these two values
+float gain_noise_min = 0.05f;
+float gain_noise_max = 0.08f;
+
+// ── Delay / echo ──────────────────────────────────────────────
+
+// Wet/dry balance into the feedback delay; 0.5 = equal dry and wet
+float delay_wet_dry = 0.5f;
+
+// How far the LFO sweeps the delay read position in samples (chorus shimmer)
+float delay_lfo_depth = 5.0f;
+
+// Initial LFO rate for delay time modulation at startup (Hz)
+float delay_lfo_init_freq = 2.0f;
+
+// Lowpass on the delay return to darken the repeats over time (Hz)
+float delay_filter_freq = 1800.0f;
+
+// Per-movement delay LFO rate range (Hz) — randomised at each new section
+float delay_lfo_rate_min = 0.2f;
+float delay_lfo_rate_max = 1.4f;
+
+// Fraction of the beat period used as the echo delay time (~2/3 = swung feel)
+float delay_time_ratio = 0.66f;
+
+// ── Noise ─────────────────────────────────────────────────────
+
+// Initial noise LFO rate — how fast the filtered noise breathing effect moves
+float noise_lfo_init_freq = 0.02f;
+
+// Initial noise highpass cutoff frequency at startup (Hz)
+float noise_filter_init_freq = 300.0f;
+
+// Per-movement noise LFO rate range (Hz) — randomised each section
+float noise_lfo_rate_min = 0.01f;
+float noise_lfo_rate_max = 0.06f;
+
+// Per-movement noise filter cutoff range (Hz) — selects the noise colour
+float noise_filter_min = 500.0f;
+float noise_filter_max = 1000.0f;
+
+// Seed for the pink noise generator
+int noise_seed = 69;
+
+// ── Master envelope ───────────────────────────────────────────
+
+// Fade-in duration when a new movement begins (seconds)
+float master_attack_time = 15.0f;
+
+// Fade-out duration when a movement ends (seconds)
+float master_release_time = 15.0f;
+
+// ── Filters ───────────────────────────────────────────────────
+
+// High-pass cutoff to remove subsonic rumble from the output (Hz)
+float hpf_freq = 80.0f;
+
+// ── Musical setup ─────────────────────────────────────────────
+
+// Root note for the piece (D1 = NOTE_C1 + 2 semitones)
+int root_note = NOTE_C1 + 2;
+
+// Initial scale/mode selection (colour index)
+int initial_colour = 5;
+
+// Initial melody pattern seed
+int initial_melody = 5;
+
+// Initial BPM before the first random tempo is chosen
+float initial_bpm = 80.0f;
+
+// Smoothing factor for light sensor ADC readings (0 = no smoothing, 1 = frozen)
+float light_sensor_smoothing = 0.03f;
+
+// ── BPM ───────────────────────────────────────────────────────
+
+// Tempo is randomly chosen within this range at the start of each movement
+float bpm_min = 72.0f;
+float bpm_max = 88.0f;
+
+// ── Movement structure ────────────────────────────────────────
+
+// How long each movement plays before the patch considers a change (ticks)
+int movement_length_ticks = 16 * BARS;
+
+// gap between movements
+int movement_gap_ticks = 4 * BARS;
+
+// Maximum number of voices allowed to play simultaneously in a movement
+int max_active_voices = 3;
+
+// Probability threshold for including a voice — higher = fewer voices selected
+float voice_select_threshold = 0.33f;
+
+// ── Per-movement voice parameters ────────────────────────────
+
+// Tung release envelope range (seconds) — randomised each movement
+float tung_release_min = 2.0f;
+float tung_release_max = 4.0f;
+
+// Upper bound on tung trigger probability threshold; lower = tung fires more
+float tung_prob_max = 0.1f;
+
+// Upper bound on saw trigger probability threshold; lower = saw fires more
+float saw_prob_max = 0.25f;
+
+
+// Saw voice LFO (vibrato/chorus) rate range (Hz)
+float saw_lfo_min = 1.2f;
+float saw_lfo_max = 4.2f;
+
+// Saw softclip drive range; higher values add more harmonic saturation
+float saw_clip_min = 0.5f;
+float saw_clip_max = 1.0f;
+
 
 //
 // Objects
@@ -41,10 +174,7 @@ float softclip_knee = 1.0f;
 LFSR rng;
 
 // Main TempoClock. gives 8th notes.
-TempoClock clock(80.0f, 2);
-
-// useful define here for the clock for making bar-based calcs (assuming 4/4)
-#define BARS (8)
+TempoClock clock(initial_bpm, 2);
 
 // Colour, for melodic content.
 Colour colour;
@@ -55,13 +185,13 @@ Organ terry;
 Tanpura tanpura;
 SawVoice sawvoice;
 BassVoice bass;
-PinkNoise noise(69);
+PinkNoise noise(noise_seed);
 LFO noise_lfo;
 SVFilter noise_filter;
 Envelope master_env;
 
 // LDR on PA0, used for day/night decisions and entropy source.
-AnalogInput lightSensor(PA0, 0.03f);
+AnalogInput lightSensor(PA0, light_sensor_smoothing);
 
 // output stage
 SVFilter filter;
@@ -88,20 +218,20 @@ int state = 0;
 int target_ticks = 0;
 
 // flags for voices we're going to play in each movement
-bool play_bass = 0;
-bool play_saw = 0;
-bool play_tung = 0;
-bool play_noise = 0;
-bool play_terry = 0;
+bool play_bass    = 0;
+bool play_saw     = 0;
+bool play_tung    = 0;
+bool play_noise   = 0;
+bool play_terry   = 0;
 bool play_tanpura = 0;
 
-int tung_mode = 0;
+int tung_mode       = 0;
 int tung_melody_idx = 0;
-int saw_melody_idx = 0;
+int saw_melody_idx  = 0;
 
 // probabilities for melodies
 float tung_prob = 0.5f;
-float saw_prob = 0.5f;
+float saw_prob  = 0.5f;
 
 int terry_notes[] = {0, 2, 3, 5, 1};
 
@@ -116,28 +246,31 @@ void audioCallback(int16_t *buffer, uint16_t length) {
       int tick = clock.getTick();
       // order tick handlers fastest to slowest.
 
-      terry.setFrequency(colour.getNote(3, terry_notes[tick % 5]));
-      terry.trigger();
+      if (rng.nextFloat() < 0.75f) {
+        terry.setFrequency(colour.getNote(3, terry_notes[tick % 5]));
+        terry.trigger();
+      }
 
       if ((tick % 1) == 0) {
-        if (rng.nextFloat() > tung_prob) {
+        if (rng.nextFloat() < tung_prob) {
           tung.setFrequency(
-              colour.getNote(4, colour.getMelody(tung_melody_idx++)),
-              tung_mode);
+              colour.getNote(3, colour.getMelody(tung_melody_idx++)));
           tung.trigger();
         }
       }
 
       if ((tick % 4) == 0) {
         terry_notes[3] = rng.nextRange(0, 3);
-        
-        if (rng.nextFloat() > saw_prob) {
+
+        if (rng.nextFloat() < saw_prob && !sawvoice.isActive()) {
           int m = colour.getMelody(saw_melody_idx++);
           sawvoice.setFrequency(colour.getNote(3, m));
           sawvoice.trigger();
         }
 
-        delay_lfo.setFrequency(0.2f + rng.nextFloat() * 1.2f);
+        delay_lfo.setFrequency(
+            delay_lfo_rate_min +
+            rng.nextFloat() * (delay_lfo_rate_max - delay_lfo_rate_min));
       }
 
       if ((tick % (1 * BARS)) == 0) {
@@ -165,7 +298,8 @@ void audioCallback(int16_t *buffer, uint16_t length) {
 
             int dr = 0;
             for (int i = 0; i < 6; i++) {
-              if (rng.nextFloat() > 0.33f && dr < 3) {
+              if (rng.nextFloat() > voice_select_threshold &&
+                  dr < max_active_voices) {
                 dice_rolls[i] = true;
                 dr++;
               } else {
@@ -185,17 +319,25 @@ void audioCallback(int16_t *buffer, uint16_t length) {
             bass_mode = rng.nextRange(0, 1);
             tung_mode = 0;
 
-            tanpura.setFrequency(colour.getNote(2, 0));
+            tanpura.setFrequency(colour.getNote(3, 0));
 
-            tung_prob = rng.nextFloat() * 0.25f;
-            saw_prob = rng.nextFloat() * 0.33f;
+            tung_prob = rng.nextFloat() * tung_prob_max;
+            saw_prob  = rng.nextFloat() * saw_prob_max;
 
-            tung.setRelease(2.0f + rng.nextFloat() * 2.0f);
+            tung.setRelease(
+                tung_release_min +
+                rng.nextFloat() * (tung_release_max - tung_release_min));
 
-            sawvoice.setLFO(1.2f + rng.nextFloat() * 4.0f);
-            sawvoice.setClip(0.5f + rng.nextFloat() * 1.2f);
+            sawvoice.setLFO(
+                saw_lfo_min +
+                rng.nextFloat() * (saw_lfo_max - saw_lfo_min));
+            sawvoice.setClip(
+                saw_clip_min +
+                rng.nextFloat() * (saw_clip_max - saw_clip_min));
 
-            colour.setColour(rng.nextRange(0, 15));
+            colour.setColour(
+                             COLOUR_BY_BRIGHTNESS[rng.nextRange(8, 15)]
+                             );
             colour.newMelody(&rng, rng.nextRange(0, 8));
 
             bass_line[0] = rng.nextRange(0, 1) * 5;
@@ -209,72 +351,80 @@ void audioCallback(int16_t *buffer, uint16_t length) {
             terry_notes[3] = rng.nextRange(0, 2);
             terry_notes[4] = 1;
 
-            noise_lfo.setFrequency(0.01f + (rng.nextFloat() * 0.05f));
-            noise_filter.setFrequency(3000.0f + (rng.nextFloat() * 2000.0f));
+            noise_lfo.setFrequency(
+                noise_lfo_rate_min +
+                rng.nextFloat() * (noise_lfo_rate_max - noise_lfo_rate_min));
+            noise_filter.setFrequency(
+                noise_filter_min +
+                rng.nextFloat() * (noise_filter_max - noise_filter_min));
 
-            float bpm = rng.nextRange(72, 88);
-            float dotted_eighth_seconds = (60.0f / bpm) * 0.66f;
-            delay_samples = (int)(dotted_eighth_seconds * 44100.0f);
+            float bpm = rng.nextRange(bpm_min, bpm_max);
+            float beat_seconds = 60.0f / bpm;
+            delay_samples = (int)(beat_seconds * delay_time_ratio * SAMPLE_RATE);
             clock.setBPM(bpm);
 
             master_env.gate(true);
+            target_ticks = tick + ((8 * rng.nextRange(2, 10)) * BARS);
           } else {
             master_env.gate(false);
             state = 0;
+            target_ticks = tick + ((8 * rng.nextRange(2, 10)) * BARS);
           }
-
-          target_ticks = tick + (8 * BARS);
         }
       }
     }
 
     if (play_bass) {
-      mix += bass.process() * 0.215f;
+      mix += bass.process() * gain_bass;
     }
 
     if (play_tung) {
-      mix += tung.process() * 0.215f;
+      mix += tung.process() * gain_tung;
     }
 
     if (play_saw) {
-      mix += sawvoice.process() * 0.57f;
+      mix += sawvoice.process() * gain_saw;
     }
 
     if (play_terry) {
-      mix += terry.process() * 0.172f;
+      mix += terry.process() * gain_terry;
     }
 
     if (play_tanpura) {
-      mix += tanpura.process() * 0.172f;
+      mix += tanpura.process() * gain_tanpura;
     }
 
     if (play_noise) {
       noise_filter.process(noise.process());
-      mix += noise_filter.highpass() *
-             mapf(noise_lfo.process(), -1.0f, 1.0f, 0.035f, 0.05f);
+      mix += noise_filter.lowpass() *
+             mapf(noise_lfo.process(), -1.0f, 1.0f,
+                  gain_noise_min, gain_noise_max);
     }
 
     mix = mix * master_env.process();
 
     // output filter stage
-    filter.setFrequency(5000.0f);
+    filter.setFrequency(output_lpf_freq);
     filter.process(mix);
 
     mix = filter.lowpass();
 
-    hpf.process(mix);
-    mix = hpf.highpass();
+    //hpf.process(mix);
+    //mix = hpf.highpass();
 
     // delay
-    float read_time_lfo = delay_lfo.process() * 5.0f;
+    float read_time_lfo = delay_lfo.process() * delay_lfo_depth;
     float delayed = delay_line.read(delay_samples + read_time_lfo);
     delay_filter.process(delayed);
     delayed = delay_filter.lowpass();
-    mix = (mix * 0.5f) + (delayed * 0.5f);
+    mix = (mix * delay_wet_dry) + (delayed * delay_wet_dry);
     delay_line.write(mix);
 
     float out = mix * gain;
-    int16_t s = (int16_t)(softclip(out, softclip_knee) * output_scale);
+    // Hard clip for output protection. softclip()'s second arg is a drive
+    // multiplier, not a threshold — softclip(x, 1.0) saturates every sample,
+    // not just peaks. Intentional saturation lives in the voice modules.
+    int16_t s = (int16_t)(clampf(out, -1.0f, 1.0f) * output_scale);
     buffer[i] = s;
     buffer[i + 1] = s;
   }
@@ -293,19 +443,22 @@ void setup() {
   }
 
   // the universe is tuned to D
-  colour.setRoot(NOTE_C1 + 2);
-  colour.newMelody(&rng, 5);
-  colour.setColour(5);
+  colour.setRoot(root_note);
+  colour.newMelody(&rng, initial_melody);
+  colour.setColour(initial_colour);
 
-  delay_lfo.setFrequency(2.0f);
-  hpf.setFrequency(80.0f);
-  noise_lfo.setFrequency(0.02f);
-  noise_filter.setFrequency(300.0f);
-  delay_filter.setFrequency(800.0f);
+  delay_lfo.setFrequency(delay_lfo_init_freq);
+  hpf.setFrequency(hpf_freq);
+  noise_lfo.setFrequency(noise_lfo_init_freq);
+  noise_filter.setFrequency(noise_filter_init_freq);
+  delay_filter.setFrequency(delay_filter_freq);
 
-  master_env.setAttack(15.0f);
-  master_env.setRelease(15.0f);
+  master_env.setAttack(master_attack_time);
+  master_env.setRelease(master_release_time);
 
+  noise_lfo.setDivider(64);
+  delay_lfo.setDivider(64);
+  
   state = 0;
   AudioEngine::begin();
 }

@@ -4,26 +4,22 @@
 
 #pragma once
 
-static float offsets[] = {2.5f, 2.0f, 3.0f, 1.5f};
-
 class Tung {
 public:
   Tung() {
-    env_.setAttack(0.125f);
-    env_.setRelease(4.0f);
-    osc1_.setWaveform(Waveform::SINE);
+    env_.setAttack(0.25f);
+    env_.setRelease(8.0f);
+    osc1_.setWaveform(Waveform::TRIANGLE);
     osc1_.setAmplitude(0.667f);
-    osc2_.setWaveform(Waveform::SINE);
-    osc2_.setAmplitude(0.333f);
-    lfo_.setFrequency(2.0f);
+    osc2_.setWaveform(Waveform::TRIANGLE);
+    osc2_.setAmplitude(0.133f);
+    lfo_.setFrequency(1.2f);
+    lfo_.setDivider(64);
   }
 
-  void setFrequency(float f, int mode) {
+  void setFrequency(float f) {
     osc1_.setFrequency(f);
-
-    float o = offsets[mode % 4];
-
-    osc2_.setFrequency(f * o);
+    osc2_.setFrequency(f * 3.01f);
   }
 
   void trigger() { env_.trigger(); }

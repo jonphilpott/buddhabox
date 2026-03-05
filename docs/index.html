@@ -455,6 +455,8 @@
 &nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">moog_filter.h</span> <span class="desc">&#x2500;&#x2500; 4-pole Moog ladder filter (LP, 24 dB/oct)</span><br>
 &nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">delay.h</span> <span class="desc">&#x2500;&#x2500; Delay line (int16 storage, interpolated reads)</span><br>
 &nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">karplus.h</span> <span class="desc">&#x2500;&#x2500; Karplus-Strong plucked string synthesis</span><br>
+&nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">organ.h</span> <span class="desc">&#x2500;&#x2500; Two-oscillator organ voice with envelope and tremolo</span><br>
+&nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">tanpura.h</span> <span class="desc">&#x2500;&#x2500; Three-oscillator tanpura drone with staggered LFO swells</span><br>
 &nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">clock.h</span> <span class="desc">&#x2500;&#x2500; Sample-accurate tempo clock</span><br>
 &nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">midi_utils.h</span> <span class="desc">&#x2500;&#x2500; MIDI note &#x2192; frequency conversion</span><br>
 &nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">colour.h</span> <span class="desc">&#x2500;&#x2500; Just-intonation pentatonic scales &amp; melody generator</span><br>
@@ -873,7 +875,7 @@ filter.<span class="func">setFrequency</span>(cutoff);  <span class="comment">//
 
   <div class="method-block">
     <div class="method-sig">void gate(bool on)</div>
-    <div class="method-desc">Open/close the gate. <code>true</code> = start attack, <code>false</code> = start release. Safe to call while already in attack/sustain.</div>
+    <div class="method-desc">Open/close the gate. <code>true</code> = restart attack from zero (always ramps up properly, even if already playing), <code>false</code> = start release.</div>
     <div class="method-param"><code>on</code> &mdash; <code>bool</code> &mdash; true = note on, false = note off</div>
   </div>
 
@@ -1233,6 +1235,115 @@ string.<span class="func">pluck</span>(<span class="func">midiToFreq</span>(NOTE
     <span class="type">uint8_t</span> note = scale[rng.<span class="func">nextRange</span>(<span class="number">0</span>, <span class="number">4</span>)];
     string.<span class="func">pluck</span>(<span class="func">midiToFreq</span>(note));
 }</code></pre>
+
+<!-- ── Organ ──────────────────────────────────────────────────────────────── -->
+<h3>Organ <code>organ.h</code></h3>
+
+<div class="module-card">
+  <h4>Class: Organ</h4>
+  <p>
+    Two-oscillator organ voice with envelope and tremolo LFO. Combines a
+    fundamental sine and a quieter second harmonic (one octave up), shaped
+    by an AR envelope and a slow sine LFO tremolo. The LFO is unipolar
+    (0&ndash;1) so it modulates amplitude without phase reversals.
+  </p>
+
+  <h4>Instantiation</h4>
+  <pre><code><span class="type">Organ</span> organ;   <span class="comment">// Attack 250ms, release 2s, tremolo 4Hz</span></code></pre>
+
+  <h4>Methods</h4>
+
+  <div class="method-block">
+    <div class="method-sig">void setFrequency(float hz)</div>
+    <div class="method-desc">Set the fundamental pitch. The second oscillator tracks at 2&times;hz automatically.</div>
+    <div class="method-param"><code>hz</code> &mdash; <code>float</code> &mdash; Fundamental frequency in Hz (e.g. 261.6 for middle C)</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">void trigger()</div>
+    <div class="method-desc">Start a new note. Restarts the envelope attack from the current level &mdash; no click even when retriggered mid-release.</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">void setRelease(float seconds)</div>
+    <div class="method-desc">Set the envelope release time.</div>
+    <div class="method-param"><code>seconds</code> &mdash; <code>float</code> &mdash; Release duration in seconds</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">float process()</div>
+    <div class="method-desc">Generate the next audio sample. Call once per sample in the audio callback.</div>
+    <div class="method-return">Returns: <code>float</code> &mdash; Audio sample in [-1.0, +1.0]</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">bool isActive()</div>
+    <div class="method-desc">Returns <code>true</code> if the envelope is not idle. Use for voice allocation.</div>
+  </div>
+
+  <h4>Example</h4>
+  <pre><code><span class="type">Organ</span> organ;
+
+<span class="comment">// On a clock tick, play a new note:</span>
+organ.<span class="func">setFrequency</span>(<span class="func">midiToFreq</span>(<span class="number">60</span>));  <span class="comment">// Middle C</span>
+organ.<span class="func">trigger</span>();
+
+<span class="comment">// In audio callback:</span>
+<span class="type">float</span> sample = organ.<span class="func">process</span>();</code></pre>
+</div>
+
+<!-- ── Tanpura ────────────────────────────────────────────────────────────── -->
+<h3>Tanpura <code>tanpura.h</code></h3>
+
+<div class="module-card">
+  <h4>Class: Tanpura</h4>
+  <p>
+    Three-oscillator tanpura drone voice. Simulates the characteristic
+    rhythmic swell of a tanpura by staggering three LFOs (each offset
+    by 1/6 of a cycle) to independently amplitude-modulate three saw
+    oscillators tuned to the Pa (5th), Sa (octave), and Sa (root).
+    Pink noise and a lowpass filter add warmth. Each LFO is unipolar
+    so strings swell from silence to full amplitude without phase-reversal
+    artefacts at the zero crossing.
+  </p>
+
+  <h4>Instantiation</h4>
+  <pre><code><span class="type">Tanpura</span> tanpura;   <span class="comment">// LFOs at 0.05 Hz, divider 64</span></code></pre>
+
+  <h4>Methods</h4>
+
+  <div class="method-block">
+    <div class="method-sig">void setFrequency(float hz)</div>
+    <div class="method-desc">Set the root pitch. The three oscillators tune to the Pa (1.5&times;), upper Sa (2&times;), and root Sa (1&times;) automatically.</div>
+    <div class="method-param"><code>hz</code> &mdash; <code>float</code> &mdash; Root frequency in Hz</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">void setLFO(float hz)</div>
+    <div class="method-desc">Set the swell rate for all three LFOs simultaneously.</div>
+    <div class="method-param"><code>hz</code> &mdash; <code>float</code> &mdash; LFO frequency in Hz (e.g. 0.05 = one swell per 20 seconds)</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">void setClip(float c)</div>
+    <div class="method-desc">Set the softclip threshold to add warmth/saturation.</div>
+    <div class="method-param"><code>c</code> &mdash; <code>float</code> &mdash; Clip level (default 1.0, lower = more saturation)</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">float process()</div>
+    <div class="method-desc">Generate the next audio sample. Call once per sample in the audio callback.</div>
+    <div class="method-return">Returns: <code>float</code> &mdash; Audio sample in [-1.0, +1.0]</div>
+  </div>
+
+  <h4>Example</h4>
+  <pre><code><span class="type">Tanpura</span> tanpura;
+tanpura.<span class="func">setFrequency</span>(<span class="func">midiToFreq</span>(<span class="number">45</span>));  <span class="comment">// A2 root</span>
+tanpura.<span class="func">setLFO</span>(<span class="number">0.1f</span>);                 <span class="comment">// Faster swell: 10-second cycle</span>
+
+<span class="comment">// In audio callback:</span>
+<span class="type">float</span> sample = tanpura.<span class="func">process</span>();</code></pre>
+</div>
 
 <!-- ── TempoClock ─────────────────────────────────────────────────────────── -->
 <h3>TempoClock <code>clock.h</code></h3>

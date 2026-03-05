@@ -171,10 +171,9 @@ public:
    * @param on  true = start attack (trigger note)
    *            false = start release (release note)
    *
-   * Calling gate(true) while already in ATTACK or SUSTAIN is safe —
-   * it just stays in the current state (no retriggering). If you want
-   * to retrigger from zero, call gate(false) then gate(true), or use
-   * trigger().
+   * Calling gate(true) always restarts the attack from zero, even if
+   * the envelope is already active. This ensures a proper attack slope
+   * rather than jumping immediately to full volume.
    *
    * Example:
    *   env.gate(true);   // Note on — start attack
@@ -195,10 +194,8 @@ public:
   /**
    * Trigger a one-shot note: start attack from the current level.
    *
-   * To prevent audible "clicks" during rapid re-triggering, this version
-   * does NOT reset the envelope to 0.0 if it's already active. Instead,
-   * it ramps up from the current level. This is often called "legato
-   * re-triggering" and sounds much smoother for melodic sequences.
+   * Always restarts the attack from zero, even if the envelope is
+   * already active. This ensures a proper attack slope on every trigger.
    *
    * The envelope will automatically move to RELEASE after reaching 1.0.
    *

@@ -9,11 +9,12 @@ public:
   SawVoice() {
     env_.setAttack(2.2f);
     env_.setRelease(4.0f);
-    osc1_.setWaveform(Waveform::TRIANGLE);
-    osc1_.setAmplitude(0.833f);
-    osc2_.setWaveform(Waveform::TRIANGLE);
-    osc2_.setAmplitude(0.167f);
+    osc1_.setWaveform(Waveform::SINE);
+    osc1_.setAmplitude(0.5f);
+    osc2_.setWaveform(Waveform::SINE);
+    osc2_.setAmplitude(0.25f);
     lfo_.setFrequency(4.0f);
+    lfo_.setDivider(64);
     clip_ = 1.0f;
   }
 
@@ -27,7 +28,7 @@ public:
     osc1_.setFrequency(f);
     osc2_.setFrequency(f * 2.00405f);
     float s = softclip((osc1_.process() + osc2_.process()) * env_.process(), clip_);
-    return (s * 2.0f);
+    return (s * 0.8f);
   }
 
   void setClip(float c) { clip_ = c; }
