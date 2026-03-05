@@ -350,6 +350,8 @@
   <a href="#hardware">Hardware</a>
   <a href="#enclosure">Enclosure Guide</a>
   <a href="#builds">Build Designs</a>
+  <a href="#larger-builds">4&Prime; Builds</a>
+  <a href="#dml">DML Panels</a>
   <a href="#power">Power Requirements</a>
 </nav>
 
@@ -459,6 +461,7 @@
 &nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">analog_input.h</span> <span class="desc">&#x2500;&#x2500; Smoothed ADC reader for sensors</span><br>
 &nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">switch_input.h</span> <span class="desc">&#x2500;&#x2500; Debounced switch with trigger/hold/release</span><br>
 &nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">mpr121_input.h</span> <span class="desc">&#x2500;&#x2500; MPR121 capacitive touch — 12-electrode driver</span><br>
+&nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">matrix_keypad.h</span> <span class="desc">&#x2500;&#x2500; 4×4 diode matrix keypad — debounced, N-key rollover</span><br>
 &nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">led.h</span> <span class="desc">&#x2500;&#x2500; Onboard user LED driver (PC13, non-blocking blink)</span><br>
 &nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">audio_engine.h</span> <span class="desc">&#x2500;&#x2500; I2S DMA engine (interface)</span><br>
 &nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">audio_engine.cpp</span> <span class="desc">&#x2500;&#x2500; I2S DMA engine (implementation)</span><br>
@@ -1893,6 +1896,245 @@ filter.<span class="func">setFrequency</span>(cutoff);</code></pre>
 <span class="type">float</span> gate = touch.<span class="func">isHeld</span>(<span class="number">5</span>) ? <span class="number">1.0f</span> : <span class="number">0.0f</span>;
 <span class="type">float</span> out  = osc.<span class="func">process</span>() * env.<span class="func">process</span>() * gate;</code></pre>
 
+<!-- ── MatrixKeypad ──────────────────────────────────────────────────────── -->
+<h3>MatrixKeypad <code>matrix_keypad.h</code></h3>
+
+<div class="module-card">
+  <h4>Class: MatrixKeypad</h4>
+  <p>
+    Debounced driver for a 4&times;4 diode matrix keypad. Uses 8 GPIO
+    pins (4 rows + 4 columns) to read 16 momentary switches with
+    N-key rollover — multiple keys can be pressed simultaneously
+    without phantom "ghost" detections. Provides the same
+    <code>triggered()</code> / <code>released()</code> /
+    <code>isHeld()</code> interface as <code>SwitchInput</code>,
+    addressed by flat key index (0&ndash;15).
+  </p>
+  <p>
+    Call <code>begin()</code> in <code>setup()</code>,
+    <code>update()</code> from <code>loop()</code>, and query the
+    key methods from anywhere including the audio callback.
+  </p>
+
+  <h4>How Matrix Scanning Works</h4>
+  <p>
+    Instead of one GPIO per switch (which would need 16 pins), the
+    keys share row and column wires. The driver cycles through each
+    row in turn: it drives that row LOW, then reads every column pin.
+    A column reads LOW when the switch at (active row, that column) is
+    closed, because the switch connects the column's pull-up resistor
+    to the driven-LOW row. After reading, the row is restored to HIGH
+    before moving to the next.
+  </p>
+  <p>
+    A 10&nbsp;&micro;s settle delay is inserted after driving each row LOW
+    to allow voltages to stabilise on longer PCB traces before the
+    column pins are sampled.
+  </p>
+
+  <h4>Why Diodes Prevent Ghosting</h4>
+  <p>
+    Without diodes, pressing three keys in an "L-shape" (e.g.
+    R0C0&nbsp;+&nbsp;R0C1&nbsp;+&nbsp;R1C0) creates a ghost current
+    path that falsely detects a fourth key. A diode at each switch
+    (cathode towards the row wire, anode towards the switch) blocks
+    this reverse current: when a row is HIGH (not being scanned), its
+    diodes are reverse-biased and no ghost signal can escape.
+  </p>
+
+  <h4>Key Numbering</h4>
+  <p style="font-family:monospace; margin-bottom:0.25rem;">
+    <strong>key&nbsp;=&nbsp;row&nbsp;&times;&nbsp;4&nbsp;+&nbsp;col</strong>
+    &nbsp;&nbsp;(0&ndash;15)
+  </p>
+  <table style="border-collapse:collapse; font-family:monospace;
+                font-size:0.9rem; margin:0.5rem 0 1rem 0;">
+    <tr>
+      <th style="border:1px solid var(--border); padding:0.4rem 0.8rem;
+                 background:var(--bg3); color:var(--text-dim);">&nbsp;</th>
+      <th style="border:1px solid var(--border); padding:0.4rem 0.8rem;
+                 background:var(--bg3); color:var(--text);">Col 0</th>
+      <th style="border:1px solid var(--border); padding:0.4rem 0.8rem;
+                 background:var(--bg3); color:var(--text);">Col 1</th>
+      <th style="border:1px solid var(--border); padding:0.4rem 0.8rem;
+                 background:var(--bg3); color:var(--text);">Col 2</th>
+      <th style="border:1px solid var(--border); padding:0.4rem 0.8rem;
+                 background:var(--bg3); color:var(--text);">Col 3</th>
+    </tr>
+    <tr>
+      <td style="border:1px solid var(--border); padding:0.4rem 0.8rem;
+                 background:var(--bg3); color:var(--text-dim);">Row 0</td>
+      <td style="border:1px solid var(--border); padding:0.4rem 0.8rem;
+                 color:var(--green);">0</td>
+      <td style="border:1px solid var(--border); padding:0.4rem 0.8rem;
+                 color:var(--green);">1</td>
+      <td style="border:1px solid var(--border); padding:0.4rem 0.8rem;
+                 color:var(--green);">2</td>
+      <td style="border:1px solid var(--border); padding:0.4rem 0.8rem;
+                 color:var(--green);">3</td>
+    </tr>
+    <tr>
+      <td style="border:1px solid var(--border); padding:0.4rem 0.8rem;
+                 background:var(--bg3); color:var(--text-dim);">Row 1</td>
+      <td style="border:1px solid var(--border); padding:0.4rem 0.8rem;
+                 color:var(--green);">4</td>
+      <td style="border:1px solid var(--border); padding:0.4rem 0.8rem;
+                 color:var(--green);">5</td>
+      <td style="border:1px solid var(--border); padding:0.4rem 0.8rem;
+                 color:var(--green);">6</td>
+      <td style="border:1px solid var(--border); padding:0.4rem 0.8rem;
+                 color:var(--green);">7</td>
+    </tr>
+    <tr>
+      <td style="border:1px solid var(--border); padding:0.4rem 0.8rem;
+                 background:var(--bg3); color:var(--text-dim);">Row 2</td>
+      <td style="border:1px solid var(--border); padding:0.4rem 0.8rem;
+                 color:var(--green);">8</td>
+      <td style="border:1px solid var(--border); padding:0.4rem 0.8rem;
+                 color:var(--green);">9</td>
+      <td style="border:1px solid var(--border); padding:0.4rem 0.8rem;
+                 color:var(--green);">10</td>
+      <td style="border:1px solid var(--border); padding:0.4rem 0.8rem;
+                 color:var(--green);">11</td>
+    </tr>
+    <tr>
+      <td style="border:1px solid var(--border); padding:0.4rem 0.8rem;
+                 background:var(--bg3); color:var(--text-dim);">Row 3</td>
+      <td style="border:1px solid var(--border); padding:0.4rem 0.8rem;
+                 color:var(--green);">12</td>
+      <td style="border:1px solid var(--border); padding:0.4rem 0.8rem;
+                 color:var(--green);">13</td>
+      <td style="border:1px solid var(--border); padding:0.4rem 0.8rem;
+                 color:var(--green);">14</td>
+      <td style="border:1px solid var(--border); padding:0.4rem 0.8rem;
+                 color:var(--green);">15</td>
+    </tr>
+  </table>
+
+  <h4>Wiring</h4>
+  <div style="font-family: monospace; background: var(--code-bg);
+              border: 1px solid var(--border); border-radius: 6px;
+              padding: 1rem; margin: 1rem 0; font-size: 0.9rem;
+              line-height: 2.2;">
+    <span style="color:var(--text-dim);">Row 0 pin</span>
+    <span style="color:var(--text);">  ─── OUTPUT (HIGH normally, LOW when scanning row 0)</span><br>
+    <span style="color:var(--text-dim);">Row 1 pin</span>
+    <span style="color:var(--text);">  ─── OUTPUT (HIGH normally, LOW when scanning row 1)</span><br>
+    <span style="color:var(--text-dim);">Row 2 pin</span>
+    <span style="color:var(--text);">  ─── OUTPUT (HIGH normally, LOW when scanning row 2)</span><br>
+    <span style="color:var(--text-dim);">Row 3 pin</span>
+    <span style="color:var(--text);">  ─── OUTPUT (HIGH normally, LOW when scanning row 3)</span><br>
+    <span style="color:var(--text-dim);">Col 0 pin</span>
+    <span style="color:var(--text);">  ─── INPUT_PULLUP</span><br>
+    <span style="color:var(--text-dim);">Col 1 pin</span>
+    <span style="color:var(--text);">  ─── INPUT_PULLUP</span><br>
+    <span style="color:var(--text-dim);">Col 2 pin</span>
+    <span style="color:var(--text);">  ─── INPUT_PULLUP</span><br>
+    <span style="color:var(--text-dim);">Col 3 pin</span>
+    <span style="color:var(--text);">  ─── INPUT_PULLUP</span><br>
+    <span style="color:var(--text-dim); font-size:0.8rem;">
+      &nbsp;&nbsp;Diode orientation: cathode → row wire, anode → switch.
+      One diode per key. No external resistors needed.
+    </span>
+  </div>
+
+  <h4>Instantiation</h4>
+  <pre><code><span class="keyword">const</span> <span class="type">uint8_t</span> rows[<span class="number">4</span>] = {PA0, PA1, PA2, PA3};
+<span class="keyword">const</span> <span class="type">uint8_t</span> cols[<span class="number">4</span>] = {PA4, PA5, PA6, PA7};
+<span class="type">MatrixKeypad</span> pad(rows, cols);          <span class="comment">// default 20ms debounce</span>
+<span class="type">MatrixKeypad</span> pad(rows, cols, <span class="number">30</span>);      <span class="comment">// 30ms for soft membrane keys</span></code></pre>
+
+  <h4>Constructor</h4>
+  <div class="method-block">
+    <div class="method-sig">MatrixKeypad(const uint8_t row_pins[4], const uint8_t col_pins[4], uint32_t debounce_ms = 20)</div>
+    <div class="method-param"><code>row_pins</code> &mdash; <code>uint8_t[4]</code> &mdash; GPIO pin numbers for the 4 row wires</div>
+    <div class="method-param"><code>col_pins</code> &mdash; <code>uint8_t[4]</code> &mdash; GPIO pin numbers for the 4 column wires</div>
+    <div class="method-param"><code>debounce_ms</code> &mdash; <code>uint32_t</code> &mdash; debounce window in ms (default 20). Increase to 50 for noisy contacts.</div>
+  </div>
+
+  <h4>Methods</h4>
+
+  <div class="method-block">
+    <div class="method-sig">void begin()</div>
+    <div class="method-desc">Configures all row pins as OUTPUT HIGH and all column pins as INPUT_PULLUP. Call once in <code>setup()</code>.</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">void update()</div>
+    <div class="method-desc">
+      Scans all 16 keys and updates debounced states. Call from <code>loop()</code> at ~100&nbsp;Hz (10&nbsp;ms intervals).
+      Drives each row LOW in turn (with a 10&nbsp;&micro;s settle delay), reads the column pins, then restores the row HIGH.
+      Do <strong>not</strong> call from the audio callback.
+    </div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">bool triggered(uint8_t key)</div>
+    <div class="method-desc">Returns <code>true</code> once per confirmed key press, then clears. Safe to call from the audio callback.</div>
+    <div class="method-param"><code>key</code> &mdash; key index 0&ndash;15 (row&nbsp;&times;&nbsp;4&nbsp;+&nbsp;col)</div>
+    <div class="method-returns">Returns: true on first call after a press; false otherwise or if key &ge; 16</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">bool released(uint8_t key)</div>
+    <div class="method-desc">Returns <code>true</code> once per confirmed key release, then clears. Safe to call from the audio callback.</div>
+    <div class="method-param"><code>key</code> &mdash; key index 0&ndash;15</div>
+    <div class="method-returns">Returns: true on first call after a release; false otherwise or if key &ge; 16</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">bool isHeld(uint8_t key) const</div>
+    <div class="method-desc">Returns the current debounced state of a key. Safe to call from the audio callback.</div>
+    <div class="method-param"><code>key</code> &mdash; key index 0&ndash;15</div>
+    <div class="method-returns">Returns: true if the key is currently held down</div>
+  </div>
+
+  <h4>Example</h4>
+<pre><code><span class="keyword">#include</span> <span class="string">"matrix_keypad.h"</span>
+<span class="keyword">#include</span> <span class="string">"oscillator.h"</span>
+<span class="keyword">#include</span> <span class="string">"envelope.h"</span>
+<span class="keyword">#include</span> <span class="string">"midi_utils.h"</span>
+<span class="keyword">#include</span> <span class="string">"audio_engine.h"</span>
+
+<span class="keyword">const</span> <span class="type">uint8_t</span> rows[<span class="number">4</span>] = {PA0, PA1, PA2, PA3};
+<span class="keyword">const</span> <span class="type">uint8_t</span> cols[<span class="number">4</span>] = {PA4, PA5, PA6, PA7};
+<span class="type">MatrixKeypad</span> pad(rows, cols);
+
+<span class="type">Oscillator</span> osc;
+<span class="type">Envelope</span>   env;
+
+<span class="comment">// One MIDI note per key — chromatic from C4</span>
+<span class="keyword">const</span> <span class="type">uint8_t</span> notes[<span class="number">16</span>] = {
+    <span class="number">60</span>,<span class="number">61</span>,<span class="number">62</span>,<span class="number">63</span>,  <span class="comment">// row 0: C4 C#4 D4 D#4</span>
+    <span class="number">64</span>,<span class="number">65</span>,<span class="number">66</span>,<span class="number">67</span>,  <span class="comment">// row 1: E4 F4  F#4 G4</span>
+    <span class="number">68</span>,<span class="number">69</span>,<span class="number">70</span>,<span class="number">71</span>,  <span class="comment">// row 2: G#4 A4 A#4 B4</span>
+    <span class="number">72</span>,<span class="number">73</span>,<span class="number">74</span>,<span class="number">75</span>   <span class="comment">// row 3: C5 C#5 D5  D#5</span>
+};
+
+<span class="type">void</span> <span class="func">audioCallback</span>(<span class="type">int16_t</span>* buf, <span class="type">uint16_t</span> len) {
+    <span class="keyword">for</span> (<span class="type">uint16_t</span> i = <span class="number">0</span>; i &lt; len; i += <span class="number">2</span>) {
+        <span class="keyword">for</span> (<span class="type">uint8_t</span> k = <span class="number">0</span>; k &lt; <span class="number">16</span>; k++) {
+            <span class="keyword">if</span> (pad.<span class="func">triggered</span>(k)) {
+                osc.<span class="func">setFrequency</span>(MidiUtils::<span class="func">noteToFreq</span>(notes[k]));
+                env.<span class="func">trigger</span>();
+            }
+        }
+        <span class="type">int16_t</span> s = (<span class="type">int16_t</span>)(osc.<span class="func">process</span>() * env.<span class="func">process</span>() * <span class="number">32000.0f</span>);
+        buf[i] = buf[i + <span class="number">1</span>] = s;
+    }
+}
+
+<span class="type">void</span> <span class="func">setup</span>() {
+    pad.<span class="func">begin</span>();
+    <span class="type">AudioEngine</span>::<span class="func">begin</span>();
+}
+
+<span class="type">void</span> <span class="func">loop</span>() {
+    pad.<span class="func">update</span>();
+    <span class="func">delay</span>(<span class="number">10</span>);
+}</code></pre>
+</div>
+
 <!-- ── UserLED ─────────────────────────────────────────────────────────── -->
 <h3>UserLED <code>led.h</code></h3>
 
@@ -2554,6 +2796,87 @@ on PA0, which the ADC reads as 0&#x2013;4095.</div>
   <strong>Power Tip:</strong> Add a large capacitor (470&micro;F or higher) across the MAX98357A's <strong>VIN</strong> and <strong>GND</strong> to prevent voltage drops during loud peaks.
 </div>
 
+<h3>Available GPIO Pins for SwitchInput (DAC-only Project)</h3>
+
+<p>
+  When only the I2S DAC is connected (using <code>AudioEngine</code>), the three
+  I2S pins (PB12, PB13, PB15) are the only GPIO consumed by audio. All other
+  header-accessible GPIO pins are free for <code>SwitchInput</code>,
+  <code>AnalogInput</code>, or any other digital/analog use.
+</p>
+
+<p>The following pins are permanently reserved and must never be used regardless of which modules are active:</p>
+<ul>
+  <li><strong>PA11, PA12</strong> &mdash; USB D&minus;/D+ (required for DFU programming)</li>
+  <li><strong>PA13, PA14</strong> &mdash; SWD SWDIO/SWDCLK (required for programming and debug)</li>
+  <li><strong>PB2</strong> &mdash; BOOT1 (boot mode selection; must be LOW at startup)</li>
+  <li><strong>PC14, PC15</strong> &mdash; LSE 32.768&thinsp;kHz crystal pins (not on headers)</li>
+</ul>
+
+<table class="wiring-table">
+  <tr>
+    <th>Pin(s)</th>
+    <th>Status</th>
+    <th>Notes</th>
+  </tr>
+  <tr>
+    <td>PA0 &ndash; PA8</td>
+    <td><span style="color:var(--green)">&#10003; Free</span></td>
+    <td>9 pins. PA0&ndash;PA7 are also ADC-capable (12-bit, ADC_IN0&ndash;IN7). Good first choice.</td>
+  </tr>
+  <tr>
+    <td>PA9</td>
+    <td><span style="color:var(--orange)">&#9888; Caution</span></td>
+    <td>USART1 TX &mdash; conflicts with <code>Serial.begin()</code>. Free if the serial monitor is not used.</td>
+  </tr>
+  <tr>
+    <td>PA10</td>
+    <td><span style="color:var(--orange)">&#9888; Caution</span></td>
+    <td>USART1 RX &mdash; conflicts with <code>Serial.begin()</code>. Free if the serial monitor is not used.</td>
+  </tr>
+  <tr>
+    <td>PA15</td>
+    <td><span style="color:var(--green)">&#10003; Free</span></td>
+    <td>JTAG TDI alternate function; works as normal GPIO in the Arduino STM32 core.</td>
+  </tr>
+  <tr>
+    <td>PB0, PB1</td>
+    <td><span style="color:var(--green)">&#10003; Free</span></td>
+    <td>2 pins. Also ADC-capable (ADC_IN8 / ADC_IN9).</td>
+  </tr>
+  <tr>
+    <td>PB3, PB4</td>
+    <td><span style="color:var(--green)">&#10003; Free</span></td>
+    <td>JTAG SWO / NJTRST alternate functions; work as normal GPIO in the Arduino STM32 core.</td>
+  </tr>
+  <tr>
+    <td>PB5 &ndash; PB11</td>
+    <td><span style="color:var(--green)">&#10003; Free</span></td>
+    <td>7 pins. No peripheral conflicts in a DAC-only project.</td>
+  </tr>
+  <tr>
+    <td>PB14</td>
+    <td><span style="color:var(--green)">&#10003; Free</span></td>
+    <td>SPI2 MISO alternate function; free as GPIO in a DAC-only project.</td>
+  </tr>
+  <tr>
+    <td>PC13</td>
+    <td><span style="color:var(--orange)">&#9888; Caution</span></td>
+    <td>Onboard user LED. Works as a SwitchInput but conflicts with the <code>LED</code> module. Avoid if using LED blink feedback.</td>
+  </tr>
+  <tr>
+    <td>PB12, PB13, PB15</td>
+    <td><span style="color:var(--accent)">&#10007; In Use</span></td>
+    <td>Reserved for I2S DAC: LRCLK (PB12), BCLK (PB13), DIN (PB15).</td>
+  </tr>
+</table>
+
+<div class="tip">
+  <strong>Total available:</strong> Up to <strong>25 GPIO pins</strong> in a DAC-only project &mdash;
+  22 with no caveats (PA0&ndash;PA8, PA15, PB0, PB1, PB3&ndash;PB11, PB14), plus
+  PA9/PA10 if the serial monitor is not used, and PC13 if the <code>LED</code> module is not used.
+</div>
+
 </section>
 
 <!-- ======================================================================= -->
@@ -2619,6 +2942,16 @@ on PA0, which the ADC reads as 0&#x2013;4095.</div>
     <td>0.8&ndash;1.6&thinsp;L</td>
     <td>9.3cm &times; 11.6cm &times; 14.9cm &asymp; 1.6&thinsp;L</td>
   </tr>
+  <tr>
+    <td>4.0&Prime; (100mm) &mdash; sealed</td>
+    <td>1.8&ndash;2.5&thinsp;L</td>
+    <td>11.0cm &times; 13.8cm &times; 17.6cm &asymp; 2.1&thinsp;L</td>
+  </tr>
+  <tr>
+    <td>4.0&Prime; (100mm) &mdash; ported</td>
+    <td>3.5&ndash;4.5&thinsp;L</td>
+    <td>12.9cm &times; 16.1cm &times; 20.6cm &asymp; 4.3&thinsp;L</td>
+  </tr>
 </table>
 
 <h3>Advanced Tuning Tips</h3>
@@ -2669,6 +3002,18 @@ on PA0, which the ADC reads as 0&#x2013;4095.</div>
     sub-1&thinsp;L box. MDF is preferred over plywood for acoustics — it is denser and more
     homogeneous, which reduces panel resonance. Both are naturally more damping than plastic and
     produce a warmer tone.
+  </li>
+  <li>
+    <strong>Solid Hardwood (Walnut, Oak, Cherry):</strong> ¾&Prime; (19&thinsp;mm) is the
+    standard thickness for larger enclosures. Dense hardwoods are acoustically comparable to MDF
+    — walnut sits at around 640&thinsp;kg/m³ versus MDF's 700&thinsp;kg/m³ — and carry a subtle
+    natural warmth that suits ambient and drone content well. More expensive than MDF; plan cuts
+    on paper before buying to minimise waste. Use rabbet or finger joints at corners for
+    strength, and pre-drill all fastener holes near edges to prevent splitting along the grain.
+    Seal interior joints with wood glue plus a silicone bead. An oil finish (tung oil, Danish
+    oil) protects the exterior and enhances the grain without filling it the way lacquer does.
+    At enclosure sizes below 10&thinsp;L, seasonal wood movement is not a structural concern as
+    long as grain direction is oriented consistently.
   </li>
   <li>
     <strong>3D Printed:</strong> <strong>4 perimeters at a 0.4&thinsp;mm nozzle = 1.6&thinsp;mm,
@@ -2892,6 +3237,548 @@ on PA0, which the ADC reads as 0&#x2013;4095.</div>
     plywood against humidity (which causes the wood to swell and can crack glued joints over time).
     It also makes the box look intentional rather than prototype-ish.
   </div>
+</div>
+
+<!-- ── Upgrading to a 4" Driver ─────────────────────────────────────────── -->
+<h3 id="larger-builds">Upgrading to a 4&Prime; Full-Range Driver</h3>
+
+<p>
+  The stock 2&Prime; drivers are adequate for desktop listening, but a 4&Prime; full-range driver
+  in a properly sized enclosure extends bass response significantly — from around 200&thinsp;Hz
+  down to approximately 80&thinsp;Hz in a ported box — and produces a noticeably richer, more
+  immersive ambient soundscape. At 5&thinsp;W from the MAX98357A, a 4&Prime; driver is the
+  practical upper limit before amplifier power becomes the constraint rather than the speaker.
+  Beyond 5&Prime;, the speaker would be underdriven and would not sound its best.
+</p>
+
+<h4>Recommended Drivers</h4>
+<table>
+  <tr>
+    <th>Driver</th>
+    <th>Impedance</th>
+    <th>Power</th>
+    <th>Price</th>
+    <th>Notes</th>
+  </tr>
+  <tr>
+    <td><strong>Dayton Audio PC105-4</strong></td>
+    <td>4&thinsp;&Omega;</td>
+    <td>15&thinsp;W</td>
+    <td>~$15</td>
+    <td>Best match for MAX98357A at 5V. 4&thinsp;&Omega; load maximises power delivery
+        (~3.2&thinsp;W). Published T/S parameters make enclosure design straightforward.</td>
+  </tr>
+  <tr>
+    <td><strong>Visaton FRS10</strong></td>
+    <td>8&thinsp;&Omega;</td>
+    <td>10&thinsp;W</td>
+    <td>~$18</td>
+    <td>Excellent natural midrange warmth. 8&thinsp;&Omega; reduces output to ~1.4&thinsp;W at
+        5V — still very usable at ambient listening levels.</td>
+  </tr>
+  <tr>
+    <td><strong>Tang Band W4-1337SDF</strong></td>
+    <td>varies</td>
+    <td>&mdash;</td>
+    <td>~$112</td>
+    <td>Premium option. Exceptional detail and extended bandwidth. Significant overkill for
+        5&thinsp;W but stunning if budget allows.</td>
+  </tr>
+</table>
+
+<div class="note">
+  <strong>Impedance and power:</strong> The MAX98357A is optimised for 4&thinsp;&Omega; loads.
+  Into 4&thinsp;&Omega; at 5V it delivers approximately 3.2&thinsp;W; into 8&thinsp;&Omega; it
+  delivers approximately 1.4&thinsp;W. For maximum volume, choose a 4&thinsp;&Omega; driver.
+  Both impedances are safe to drive; the amp will not be damaged by an 8&thinsp;&Omega; load.
+</div>
+
+<!-- ─ Design 3: 4" Ported Hardwood Box ────────────────────────────────── -->
+<div class="module-card">
+  <h4>Design 3 &mdash; 4&Prime; Ported Box in Walnut or MDF</h4>
+
+  <p>
+    A ported design for the Dayton PC105-4 (or similar 4&Prime; driver). The port extends bass
+    response to approximately 80&thinsp;Hz &mdash; roughly an octave lower than a sealed 2&Prime;
+    box. Walnut gives a premium aesthetic finish; MDF is cheaper and acoustically neutral.
+  </p>
+
+  <h4>Target Dimensions</h4>
+  <table>
+    <tr><th></th><th>Width</th><th>Height</th><th>Depth</th><th>Volume</th></tr>
+    <tr>
+      <td><strong>Internal</strong></td>
+      <td>129&thinsp;mm</td><td>161&thinsp;mm</td><td>206&thinsp;mm</td>
+      <td>&asymp;4.3&thinsp;L</td>
+    </tr>
+    <tr>
+      <td><strong>External (19&thinsp;mm walls)</strong></td>
+      <td>167&thinsp;mm</td><td>199&thinsp;mm</td><td>244&thinsp;mm</td>
+      <td>&mdash;</td>
+    </tr>
+  </table>
+  <p style="font-size:0.9rem;color:var(--text-dim)">
+    Dimension ratios 129&thinsp;:&thinsp;161&thinsp;:&thinsp;206 &rarr;
+    1&thinsp;:&thinsp;1.25&thinsp;:&thinsp;1.60 &mdash; non-harmonic. Based on the Dayton
+    PC105-4 recommended ported volume of 0.15&thinsp;ft&sup3; (4.25&thinsp;L).
+  </p>
+
+  <h4>Port Specification</h4>
+  <p>
+    A single round port tunes the enclosure to approximately 80&thinsp;Hz &mdash; the
+    F<sub>3</sub> point for the PC105-4 in a vented alignment. The physical length accounts
+    for the acoustic end correction of approximately 0.73&thinsp;&times;&thinsp;D at the open
+    (exterior) end of the tube:
+  </p>
+  <ul>
+    <li><strong>Port diameter:</strong> 38&thinsp;mm (1.5&Prime;)</li>
+    <li><strong>Port length:</strong> 96&thinsp;mm (3.8&Prime;)</li>
+    <li><strong>Tuning frequency:</strong> &asymp; 80&thinsp;Hz</li>
+  </ul>
+  <p>
+    A section of 38&thinsp;mm (1.5&Prime;) PVC pipe works well and is available from any
+    hardware store. Mount it flush through the rear panel, centred and at least 19&thinsp;mm
+    from any edge. If using a different driver with different T/S parameters, recalculate
+    using <a href="https://www.the12volt.com/caraudio/boxcalcs.asp"
+    style="color:var(--cyan)">the12volt.com port calculator</a>.
+  </p>
+
+  <div class="tip">
+    <strong>Do not over-stuff a ported box.</strong> Unlike a sealed enclosure, polyfill in a
+    ported box should not be used to inflate effective volume. Use only a thin layer pressed
+    lightly against the walls for acoustic absorption. Heavy stuffing chokes the port and
+    destroys the bass reflex effect you are designing for.
+  </div>
+
+  <h4>Material: Solid Walnut</h4>
+  <ul>
+    <li>Use ¾&Prime; (19&thinsp;mm) surfaced walnut planks from a hardwood dealer. The box
+        shown above requires very little material — plan cuts on paper first.</li>
+    <li><strong>Joinery:</strong> rabbet joints or box/finger joints are preferred &mdash;
+        both add mechanical strength and look beautiful at the exposed corners. Simple butt
+        joints glued and screwed work but are less elegant.</li>
+    <li><strong>Pre-drill all fastener holes</strong> near edges &mdash; walnut is dense and
+        will split along the grain without pilot holes.</li>
+    <li><strong>Finish:</strong> apply tung oil or Danish oil to flat panels
+        <em>before</em> final assembly where possible. Mask the joint surfaces so glue bonds
+        to bare wood. Two to three wiped coats, sanded lightly between, gives a durable
+        satin finish that enhances the grain without filling it.</li>
+  </ul>
+
+  <h4>Material: MDF (Alternative)</h4>
+  <ul>
+    <li>Same ¾&Prime; (19&thinsp;mm) thickness. Denser and acoustically neutral &mdash; no
+        grain to consider, no splitting risk.</li>
+    <li>Butt joints glued and screwed are entirely adequate. Fill screw holes with wood
+        filler before painting.</li>
+    <li>Paint, wrap in vinyl, or apply a walnut veneer sheet for finish. Veneer over MDF
+        gives approximately 90% of the walnut aesthetic at a fraction of the cost.</li>
+  </ul>
+
+  <h4>Driver Mounting</h4>
+  <p>
+    Always verify cutout diameter and bolt circle against your specific driver's datasheet
+    before cutting the baffle. For the Dayton PC105-4:
+  </p>
+  <ul>
+    <li><strong>Cutout diameter:</strong> &asymp; 87&thinsp;mm (3.44&Prime;)</li>
+    <li><strong>Flange diameter:</strong> &asymp; 107&thinsp;mm (4.22&Prime;) &mdash; ensure
+        at least 10&thinsp;mm of baffle material surrounds the flange on all sides</li>
+    <li>Offset the driver <strong>10&thinsp;mm above vertical centre</strong> on the baffle
+        to break diffraction symmetry at the baffle edges.</li>
+    <li>Run a thin bead of silicone around the driver rim after mounting for an airtight
+        acoustic seal.</li>
+  </ul>
+
+  <h4>Assembly Order</h4>
+  <ol>
+    <li>Cut all panels to size. Drill the port hole in the rear panel and the speaker cutout
+        in the front baffle, but leave driver pilot holes until after assembly.</li>
+    <li>Line all interior surfaces with 10&thinsp;mm open-cell acoustic foam or felt before
+        closing the box — this step is very difficult to do later.</li>
+    <li>Glue and clamp the four sides, top, and bottom. Allow to cure fully (1&ndash;2
+        hours minimum for PVA; follow epoxy instructions if using epoxy).</li>
+    <li>Seal all interior joints with a bead of silicone sealant — especially around the
+        port tube penetration. Air leaks destroy ported bass response entirely.</li>
+    <li>Insert the port tube through the rear panel and seal with silicone around its
+        perimeter on both the interior and exterior faces.</li>
+    <li>Add a light handful of polyfill loosely against the walls only &mdash; do not pack
+        the box. Leave the central volume clear.</li>
+    <li>Thread the speaker wire through a small hole in the rear panel and seal with
+        silicone.</li>
+    <li>Mount the driver in the front baffle with appropriate screws and run a silicone
+        bead around the rim.</li>
+    <li>Glue the front baffle to the box body last. This is the only perimeter joint you
+        cannot reach from the inside afterward &mdash; clamp it carefully and allow to
+        cure fully before the first playback.</li>
+  </ol>
+</div>
+
+<!-- ─ Design 4: 4" Sealed Box with Electronics ──────────────────────────── -->
+<div class="module-card">
+  <h4>Design 4 &mdash; 4&Prime; Sealed Box with Integrated Electronics</h4>
+
+  <p>
+    A sealed design sized to house the STM32 Black Pill, MAX98357A amplifier board, and all
+    wiring inside the enclosure, with a USB-C power inlet and LDR sensor built into the
+    panels. Sealed construction simplifies the rear panel &mdash; no port tube competing
+    for space with the power connector &mdash; and results in a smaller, cleaner-looking
+    box. Bass rolls off at approximately 136&thinsp;Hz rather than the ported design's
+    80&thinsp;Hz, but the tighter, more controlled low end still suits ambient drone
+    content well.
+  </p>
+
+  <h4>Target Dimensions</h4>
+  <table>
+    <tr><th></th><th>Width</th><th>Height</th><th>Depth</th><th>Volume</th></tr>
+    <tr>
+      <td><strong>Internal</strong></td>
+      <td>100&thinsp;mm</td><td>125&thinsp;mm</td><td>160&thinsp;mm</td>
+      <td>&asymp;2.0&thinsp;L</td>
+    </tr>
+    <tr>
+      <td><strong>External (19&thinsp;mm walls)</strong></td>
+      <td>138&thinsp;mm</td><td>163&thinsp;mm</td><td>244&thinsp;mm</td>
+      <td>&mdash;</td>
+    </tr>
+  </table>
+  <p style="font-size:0.9rem;color:var(--text-dim)">
+    Dimension ratios 100&thinsp;:&thinsp;125&thinsp;:&thinsp;160 &rarr;
+    1&thinsp;:&thinsp;1.25&thinsp;:&thinsp;1.60 &mdash; non-harmonic. Matches the Dayton
+    PC105-4 recommended sealed volume of 0.07&thinsp;ft&sup3; (2.0&thinsp;L).
+  </p>
+
+  <div class="tip">
+    <strong>Electronics and effective volume:</strong> The Black Pill and MAX98357A boards
+    mounted on the rear panel interior displace approximately 100&ndash;150&thinsp;mL of
+    air, reducing the effective acoustic volume slightly. A thin polyfill wall coat
+    (10&thinsp;mm layer, not packed) adds back approximately 10% &mdash; keeping the final
+    acoustic volume close to the 2.0&thinsp;L target without relying on heavy stuffing.
+    The speaker basket itself extends approximately 60&ndash;70&thinsp;mm into the box
+    from the front baffle, leaving around 90&thinsp;mm of clear depth for the electronics
+    at the rear.
+  </div>
+
+  <h4>External Connectors</h4>
+
+  <p><strong>USB-C Power Inlet &mdash; rear panel, bottom centre</strong></p>
+  <p>
+    A panel-mount USB-C connector with short pigtail wires (5V and GND) to the power rail
+    is the cleanest solution. These are widely available as small breakout boards from
+    Adafruit, SparkFun, and similar suppliers for approximately $4&ndash;$6.
+  </p>
+  <ul>
+    <li><strong>Cutout:</strong> check your specific connector's datasheet &mdash; a
+        typical rectangular panel-mount opening is approximately
+        10&thinsp;mm &times; 4&thinsp;mm for the connector face, plus
+        2&times; M2 mounting holes on a 16&thinsp;mm centres. Some threaded barrel-style
+        panel mounts use a round hole (typically 12&thinsp;mm diameter) instead.</li>
+    <li>Mount on the <strong>rear panel, centred horizontally, 20&thinsp;mm from the
+        bottom edge</strong>. This keeps the power cable low and out of sight from the
+        front.</li>
+    <li>Route the pigtail wires directly to the 5V and GND pins on the Black Pill or to
+        a short power bus between the two boards.</li>
+    <li>Seal around the connector body with a small bead of silicone after mounting to
+        maintain the acoustic seal.</li>
+  </ul>
+
+  <p><strong>LDR Sensor &mdash; top panel</strong></p>
+  <p>
+    The LDR connects to <code>PA0</code> (see <code>analog_input.h</code>) via a simple
+    resistor voltage divider: 3.3&thinsp;V &rarr; LDR &rarr; PA0 junction &rarr;
+    10&thinsp;k&Omega; &rarr; GND. Mount the 10&thinsp;k&Omega; resistor on a small piece
+    of perfboard or directly on the LDR legs inside the box.
+  </p>
+  <ul>
+    <li><strong>Hole size:</strong> 5&thinsp;mm diameter (matches a standard 5&thinsp;mm
+        disc LDR).</li>
+    <li><strong>Location:</strong> top panel, approximately 30&thinsp;mm from the rear
+        edge and centred on the width. This faces the LDR upward toward ambient room
+        light &mdash; the primary use case in the firmware.</li>
+    <li>Press the LDR through the hole from the inside so its face is flush with the
+        exterior surface. A drop of hot glue around the LDR collar from the inside holds
+        it securely and seals the hole.</li>
+    <li>Route the two LDR wires along the inside of the top panel to the rear where the
+        Black Pill is mounted. Keep the wires short and tuck them against the foam-lined
+        wall.</li>
+  </ul>
+
+  <h4>Internal Electronics Layout</h4>
+  <ul>
+    <li>Mount the Black Pill and MAX98357A on <strong>M3 brass standoffs, 5&thinsp;mm
+        tall</strong>, screwed into the rear panel interior. This holds both boards flat
+        against the rear panel, well clear of the speaker basket.</li>
+    <li>Orient the Black Pill so the USB-C programming port faces a side panel (not the
+        rear) if you want occasional re-flashing access. Alternatively, accept that
+        re-flashing requires opening the box &mdash; for a finished build this is usually
+        fine.</li>
+    <li>Keep speaker wires (MAX98357A to driver) to under 150&thinsp;mm to minimise
+        noise pickup. Route them along the bottom panel interior.</li>
+    <li>I2S wires between the Black Pill and MAX98357A (PB12, PB13, PB15 + 5V + GND)
+        are very short since both boards are adjacent &mdash; use short jumper wires or
+        solder directly between boards with short hookup wire.</li>
+  </ul>
+
+  <h4>Assembly Order</h4>
+  <ol>
+    <li>Cut all panels. Drill the USB-C cutout in the rear panel, the 5&thinsp;mm LDR
+        hole in the top panel, and the speaker cutout in the front baffle.</li>
+    <li>Mount the M3 standoffs in the rear panel while it is still loose &mdash; much
+        easier than reaching inside a closed box.</li>
+    <li>Line all interior walls with 10&thinsp;mm acoustic foam or felt,
+        <em>except</em> the rear panel mounting surface where the standoffs sit.</li>
+    <li>Assemble the four sides and top panel with glue and clamps. Leave the rear
+        panel and front baffle off.</li>
+    <li>Mount the Black Pill and MAX98357A on the rear panel standoffs. Wire the power
+        pigtail from the USB-C connector to the 5V/GND rails. Solder and heat-shrink
+        all connections.</li>
+    <li>Install the LDR through the top panel hole and secure with hot glue. Route the
+        LDR wires to PA0 and GND on the Black Pill.</li>
+    <li>Thread speaker wires from the MAX98357A through the box, leaving enough slack
+        to reach the front baffle.</li>
+    <li>Glue the rear panel into the box body. Seal all interior joints with silicone,
+        including around the USB-C connector body and the standoff screw heads.</li>
+    <li>Add a thin polyfill wall coat against the four side walls and top. Do not cover
+        the rear panel electronics area.</li>
+    <li>Connect speaker wires to the driver terminals. Mount the driver in the front
+        baffle, seal the rim with silicone, and glue the baffle to the box body last.
+        Clamp the full perimeter and allow to cure before powering on.</li>
+  </ol>
+</div>
+
+</section>
+
+<!-- ======================================================================= -->
+<section id="dml">
+<h2>DML Flat Panel Speakers</h2>
+
+<p>
+  A Distributed Mode Loudspeaker (DML) is a fundamentally different approach to sound
+  reproduction. Instead of a cone moving air like a piston, a small <strong>exciter</strong>
+  — essentially a voice coil and magnet with no cone of its own — is glued to a flat panel.
+  The panel itself becomes the radiating surface, vibrating in complex bending-wave patterns
+  across its full area rather than as a rigid piston. The result is a wide, diffuse,
+  near-omnidirectional sound field that is sonically very different from a point-source
+  speaker.
+</p>
+<p>
+  For BuddhaBox ambient and drone content this character is compelling: the sound feels
+  like it fills the room rather than coming from a specific location, which suits meditative
+  listening particularly well. There is also a practical advantage — <strong>no enclosure is
+  required at all.</strong> The panel is the speaker. The entire BuddhaBox electronics stack
+  can be mounted directly to the rear of the panel, producing a thin, wall-hangable object
+  rather than a wooden box.
+</p>
+
+<div class="tip">
+  <strong>DML vs conventional speaker for BuddhaBox:</strong> A conventional cone driver
+  in a well-designed enclosure will have flatter frequency response and more predictable
+  bass. A DML panel will have lumpier response — peaks and dips across the spectrum — but a
+  more spacious, enveloping character. For hi-fi music playback the cone wins; for
+  generative ambient drones the DML's diffuse quality is arguably more interesting.
+</div>
+
+<h3>How Exciters Work</h3>
+<p>
+  An exciter is mechanically identical to a speaker driver minus the cone. The voice coil
+  is terminated in a contact foot (usually a metal disc or rubber pad) which is bonded
+  directly to the panel surface. Audio current through the coil creates alternating magnetic
+  force, which drives bending waves into the panel. Those waves propagate outward from the
+  attachment point, reflect off the edges, and interfere to produce a complex modal pattern
+  — every frequency excites a different spatial pattern across the panel's surface.
+</p>
+<p>
+  The non-uniform bending-wave distribution means the panel radiates differently at every
+  frequency. This is what creates the DML's wide dispersion: there is no single point
+  source, so there is no beaming.
+</p>
+
+<h3>Choosing an Exciter for BuddhaBox</h3>
+<p>
+  The MAX98357A amplifier is optimised for a <strong>4&thinsp;&Omega;</strong> load and
+  delivers approximately 3.2&thinsp;W at 5V into that impedance. Avoid 8&thinsp;&Omega;
+  exciters — they reduce output to around 1.4&thinsp;W. The following 4&thinsp;&Omega;
+  models are well matched:
+</p>
+
+<table>
+  <tr>
+    <th>Model</th>
+    <th>Size</th>
+    <th>Power</th>
+    <th>Impedance</th>
+    <th>Price</th>
+    <th>Notes</th>
+  </tr>
+  <tr>
+    <td><strong>DAEX25CT-4</strong></td>
+    <td>25&thinsp;mm</td>
+    <td>10&thinsp;W</td>
+    <td>4&thinsp;&Omega;</td>
+    <td>~$13</td>
+    <td>Coin-type. Best everyday match for MAX98357A — power rating well above the 3.2&thinsp;W
+        delivered, so it runs with plenty of headroom.</td>
+  </tr>
+  <tr>
+    <td><strong>DAEX25VT-4</strong></td>
+    <td>25&thinsp;mm</td>
+    <td>20&thinsp;W</td>
+    <td>4&thinsp;&Omega;</td>
+    <td>~$14</td>
+    <td>Vented for better heat dissipation. Overkill on power rating but runs very cool
+        at BuddhaBox levels. Good choice for long unattended operation.</td>
+  </tr>
+  <tr>
+    <td><strong>DAEX25FHE-4</strong></td>
+    <td>25&thinsp;mm</td>
+    <td>24&thinsp;W</td>
+    <td>4&thinsp;&Omega;</td>
+    <td>~$15</td>
+    <td>High efficiency framed version. Slightly higher sensitivity — louder at the same
+        input power. Community-recommended for lightweight foam panels.</td>
+  </tr>
+  <tr>
+    <td><strong>DAEX25 (pair)</strong></td>
+    <td>25&thinsp;mm</td>
+    <td>5&thinsp;W</td>
+    <td>8&thinsp;&Omega;</td>
+    <td>~$12</td>
+    <td><strong>Avoid for MAX98357A.</strong> 8&thinsp;&Omega; impedance cuts output to
+        ~1.4&thinsp;W. Included here only because it appears frequently in search results
+        and on Amazon.</td>
+  </tr>
+</table>
+
+<div class="note">
+  <strong>Stereo:</strong> For stereo output, you need one exciter per channel — two
+  exciters on two separate panels, or one per side of a single large panel (though channel
+  separation suffers on a single panel). A single mono exciter on one panel still sounds
+  impressively immersive for ambient content, since the DML dispersion already creates a
+  spacious effect.
+</div>
+
+<h3>Panel Materials</h3>
+
+<p>
+  The panel is the most important variable in a DML build. It needs to be lightweight,
+  stiff in compression, and have moderate internal damping — enough to prevent ringing,
+  but not so much that it absorbs energy before the waves can radiate.
+</p>
+
+<table>
+  <tr>
+    <th>Material</th>
+    <th>Cost</th>
+    <th>Character</th>
+    <th>Notes</th>
+  </tr>
+  <tr>
+    <td><strong>XPS foam board</strong> (pink/blue rigid insulation)</td>
+    <td>~$2&ndash;$5</td>
+    <td>Warm, surprisingly extended bass for its weight</td>
+    <td>Community favourite for beginners. Available as 2&prime;&times;2&prime; project
+        panels at Home Depot/Lowe's (Owens Corning FOAMULAR or similar).
+        <strong>Sand the outer skin off completely</strong> — it damps the panel and
+        kills treble. The sanded surface should feel matte and velvety with no sheen
+        remaining.</td>
+  </tr>
+  <tr>
+    <td><strong>EPS foam</strong> (expanded polystyrene, white beaded)</td>
+    <td>~$2&ndash;$4</td>
+    <td>Brighter, less bass than XPS</td>
+    <td>Lower density than XPS — lighter, which helps high-frequency response. Less
+        structurally rigid. No skin to sand. Fragile at the edges.</td>
+  </tr>
+  <tr>
+    <td><strong>Foam-core poster board</strong></td>
+    <td>~$1&ndash;$3</td>
+    <td>Detailed midrange, limited bass</td>
+    <td>Very thin and light — excellent midrange clarity. Dayton's own buyer's guide
+        lists this as an ideal DML material. Available from any office supply store.
+        Not durable long-term.</td>
+  </tr>
+  <tr>
+    <td><strong>Balsa wood sheet</strong></td>
+    <td>~$5&ndash;$15</td>
+    <td>Bright, detailed, articulate</td>
+    <td>Higher stiffness-to-weight ratio than foam — more accurate treble. Less forgiving
+        to mount; edges must be free. More durable than foam.</td>
+  </tr>
+</table>
+
+<h3>Panel Sizing</h3>
+<p>
+  Panel dimensions directly affect bass extension — a larger panel moves more air at low
+  frequencies, just like a larger speaker cone.
+</p>
+<ul>
+  <li>A <strong>20&thinsp;cm &times; 30&thinsp;cm</strong> (8&Prime;&times;12&Prime;) XPS
+      panel gives a compact, portable result with limited bass. Good for a first experiment
+      on a desk.</li>
+  <li>A <strong>30&thinsp;cm &times; 45&thinsp;cm</strong> (12&Prime;&times;18&Prime;)
+      panel is the community sweet spot — noticeably better bass than the small size,
+      still manageable as a wall-hung object.</li>
+  <li>A <strong>60&thinsp;cm &times; 90&thinsp;cm</strong> (24&Prime;&times;36&Prime;)
+      or larger panel produces genuinely room-filling bass and is ideal if wall-mounting
+      is the goal. A standard 2&prime;&times;4&prime; insulation board requires no
+      cutting at all.</li>
+  <li>Use <strong>non-square panels</strong> — a square panel concentrates modal resonances
+      at regular intervals. Irrational aspect ratios (e.g., 1&thinsp;:&thinsp;1.41 or
+      1&thinsp;:&thinsp;1.6) spread them more evenly across the frequency range.</li>
+</ul>
+
+<h3>Exciter Mounting Position</h3>
+<p>
+  Where you attach the exciter on the panel has a significant effect on frequency response.
+  Dead centre produces strong resonant modes at regular harmonics. The recommended approach
+  is to mount the exciter at an <strong>irrational offset from centre</strong> — the
+  community-tested golden-ratio position is approximately:
+</p>
+<ul>
+  <li><strong>3/7 of the panel width</strong> from one side</li>
+  <li><strong>4/9 of the panel height</strong> from one end</li>
+</ul>
+<p>
+  These are not magic numbers — any asymmetric, non-centred position is better than dead
+  centre. The goal is simply to avoid exciting the same modal pattern at multiple
+  frequencies simultaneously.
+</p>
+
+<div class="tip">
+  <strong>Panel edge support:</strong> The panel edges must be free to vibrate — clamping
+  or rigidly fixing them kills bass dramatically. Lay the panel on a frame of soft foam
+  strip (weather seal tape works well), hang it from two thin cords near the top edge, or
+  use small rubber bumpers at the corners only. Avoid contact near the centre of any edge.
+</div>
+
+<h3>BuddhaBox DML Build</h3>
+<p>
+  A DML BuddhaBox requires essentially no woodworking. The entire build is:
+</p>
+<ol>
+  <li>Cut or buy an XPS foam panel in your chosen size. Sand all surfaces until the skin
+      is completely removed — matte, velvety texture throughout.</li>
+  <li>Mark the exciter mounting position at the irrational offset described above. Apply
+      the exciter's 3M adhesive pad (included) and press firmly for 60 seconds. Allow
+      30 minutes before powering on.</li>
+  <li>Mount the Black Pill and MAX98357A on a small piece of protoboard or directly to
+      the rear of the panel using adhesive foam pads or 3M mounting tape. Keep the
+      electronics away from the exciter — adhesive pads near the vibrating area can
+      work loose over time.</li>
+  <li>Add the USB-C panel-mount connector at one edge of the panel for power. A small
+      piece of laser-cut acrylic or thin plywood bonded to the panel edge makes a tidy
+      connector mount.</li>
+  <li>Drill or push a 5&thinsp;mm hole through the panel face in a corner for the LDR
+      sensor. Mount the LDR flush and seal with a drop of hot glue.</li>
+  <li>Keep all wiring short and taped flat against the panel rear. Any loose cable that
+      contacts the panel surface will rattle when the panel vibrates.</li>
+</ol>
+
+<div class="note">
+  <strong>LDR placement on a DML panel:</strong> Unlike a wooden box, the panel face itself
+  vibrates. Avoid mounting the LDR in the centre of the panel where vibration amplitude is
+  highest — a corner position minimises mechanical stress on the component and its solder
+  joints.
 </div>
 
 </section>
