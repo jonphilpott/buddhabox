@@ -33,7 +33,7 @@
 float output_scale = 32000.0f;
 
 // Master volume multiplier applied just before output conversion
-float gain = 1.0f;
+float gain = 0.5f;
 
 // Soft saturation threshold; signals above this get gently compressed
 float softclip_knee = 1.0f;
@@ -316,7 +316,7 @@ void audioCallback(int16_t *buffer, uint16_t length) {
             play_tanpura = dice_rolls[dr++];
             play_bass    = dice_rolls[dr++];
 
-            bass_mode = rng.nextRange(0, 1);
+            bass_mode = 1;
             tung_mode = 0;
 
             tanpura.setFrequency(colour.getNote(3, 0));
@@ -357,6 +357,8 @@ void audioCallback(int16_t *buffer, uint16_t length) {
             noise_filter.setFrequency(
                 noise_filter_min +
                 rng.nextFloat() * (noise_filter_max - noise_filter_min));
+
+            tanpura.setLFO(rng.nextFloat() * 0.5f);
 
             float bpm = rng.nextRange(bpm_min, bpm_max);
             float beat_seconds = 60.0f / bpm;

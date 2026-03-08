@@ -52,3 +52,10 @@ Dayton Audio CE48-4 (~$8)
   DSP and the driver will be rolling off together rather than fighting
   each other. Most satisfactory.
 
+
+
+*** Crackles on MAX9...
+
+https://github.com/pschatzmann/arduino-audio-tools/discussions/1268
+
+discussion says putting resistors 27ohm but 10-50 should work on LRC/BCLK lines
