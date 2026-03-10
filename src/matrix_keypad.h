@@ -1,19 +1,19 @@
 /**
  * @file matrix_keypad.h
- * @brief 4×4 diode matrix keypad — debounced input with per-key
+ * @brief 5×5 diode matrix keypad — debounced input with per-key
  *        trigger/hold/release detection and N-key rollover.
  *
- * A 4×4 matrix keypad has 16 momentary switches arranged in a grid,
- * sharing 4 row wires and 4 column wires (8 pins total). A diode is
+ * A 5×5 matrix keypad has 25 momentary switches arranged in a grid,
+ * sharing 5 row wires and 5 column wires (10 pins total). A diode is
  * placed in series with each switch to allow multiple simultaneous
  * keypresses without producing phantom "ghost" keypresses.
  *
  * HOW MATRIX SCANNING WORKS:
  * ────────────────────────────────────────────────────────────────────
- * Instead of one GPIO per switch (which needs 16 pins), the matrix
+ * Instead of one GPIO per switch (which needs 25 pins), the matrix
  * reuses wires in a grid. The scan loop:
  *
- *   For each row (0–3):
+ *   For each row (0–4):
  *     1. Drive that row pin LOW (all others stay HIGH).
  *     2. Wait 10µs for the signal to settle on PCB traces.
  *     3. Read each column pin. A LOW reading means the switch at
@@ -35,22 +35,29 @@
  * HIGH (not being scanned), the diode at any (R0,*) key is
  * reverse-biased, so no ghost current can flow.
  *
- * WIRING:
+ * WIRING (STM32F401CC Black Pill — I2C-safe pin assignment):
  * ────────────────────────────────────────────────────────────────────
+ *   Row pins   : PA3, PA4, PA5, PA6, PA7
+ *   Column pins: PB0, PB1, PB4, PB5, PB14
+ *
  *   Row pins   : OUTPUT, driven LOW one at a time during scanning.
  *                All other rows held HIGH between scans.
  *   Column pins: INPUT_PULLUP (HIGH when open, LOW when pressed).
  *   Diode      : cathode to row wire, anode to switch (one per key).
  *
+ *   I2C1 (PB6/PB7 or PB8/PB9), I2C2 (PB10/PB3), and I2C3 (PA8)
+ *   are deliberately avoided so an I2C peripheral can coexist.
+ *
  * KEY NUMBERING:
  * ────────────────────────────────────────────────────────────────────
- *   key = row × 4 + col   (0–15)
+ *   key = row × 5 + col   (0–24)
  *
- *    Col:  0   1   2   3
- *   Row 0: 0   1   2   3
- *   Row 1: 4   5   6   7
- *   Row 2: 8   9  10  11
- *   Row 3:12  13  14  15
+ *    Col:  0   1   2   3   4
+ *   Row 0: 0   1   2   3   4
+ *   Row 1: 5   6   7   8   9
+ *   Row 2:10  11  12  13  14
+ *   Row 3:15  16  17  18  19
+ *   Row 4:20  21  22  23  24
  *
  * CALLING FROM THE AUDIO CALLBACK:
  * ────────────────────────────────────────────────────────────────────
@@ -60,8 +67,8 @@
  * needed. update() must only be called from loop().
  *
  * Example usage:
- *   const uint8_t rows[4] = {PA0, PA1, PA2, PA3};
- *   const uint8_t cols[4] = {PA4, PA5, PA6, PA7};
+ *   const uint8_t rows[5] = {PA3, PA4, PA5, PA6, PA7};
+ *   const uint8_t cols[5] = {PB0, PB1, PB4, PB5, PB14};
  *   MatrixKeypad pad(rows, cols);
  *
  *   void setup() { pad.begin(); }
@@ -74,7 +81,7 @@
  *   // In audio callback:
  *   if (pad.triggered(0)) { env.trigger(); } // key 0 = row 0, col 0
  *   if (pad.released(0))  { env.release(); }
- *   float gate = pad.isHeld(5) ? 1.0f : 0.0f; // key 5 = row 1, col 1
+ *   float gate = pad.isHeld(6) ? 1.0f : 0.0f; // key 6 = row 1, col 1
  */
 
 #pragma once
@@ -85,19 +92,19 @@
 class MatrixKeypad {
 public:
   /** Number of rows in the keypad grid. */
-  static constexpr uint8_t ROWS = 4;
+  static constexpr uint8_t ROWS = 5;
   /** Number of columns in the keypad grid. */
-  static constexpr uint8_t COLS = 4;
+  static constexpr uint8_t COLS = 5;
   /** Total number of keys (ROWS × COLS). */
   static constexpr uint8_t NUM_KEYS = ROWS * COLS;
 
   /**
    * Construct a MatrixKeypad.
    *
-   * @param row_pins    Array of 4 GPIO pin numbers for the row wires.
+   * @param row_pins    Array of 5 GPIO pin numbers for the row wires.
    *                    Configured as OUTPUT; driven LOW one at a time
    *                    during scanning, HIGH otherwise.
-   * @param col_pins    Array of 4 GPIO pin numbers for the column
+   * @param col_pins    Array of 5 GPIO pin numbers for the column
    *                    wires. Configured as INPUT_PULLUP.
    * @param debounce_ms Debounce window in milliseconds. A key state
    *                    must be stable for this long before it is
@@ -106,8 +113,8 @@ public:
    *                    cheaper contacts.
    *
    * Example:
-   *   const uint8_t rows[4] = {PA0, PA1, PA2, PA3};
-   *   const uint8_t cols[4] = {PA4, PA5, PA6, PA7};
+   *   const uint8_t rows[5] = {PA3, PA4, PA5, PA6, PA7};
+   *   const uint8_t cols[5] = {PB0, PB1, PB4, PB5, PB14};
    *   MatrixKeypad pad(rows, cols);        // 20ms debounce
    *   MatrixKeypad pad(rows, cols, 30);    // 30ms for membrane pads
    */
@@ -234,8 +241,8 @@ public:
    *
    * Safe to call from the audio callback (ISR context).
    *
-   * @param key  Key index 0–15 (row × 4 + col). Key 0 = top-left,
-   *             key 15 = bottom-right of the standard 4×4 layout.
+   * @param key  Key index 0–24 (row × 5 + col). Key 0 = top-left,
+   *             key 24 = bottom-right of the standard 5×5 layout.
    * @return     true on the first call after a confirmed press;
    *             false otherwise, or if key >= NUM_KEYS.
    *
@@ -260,7 +267,7 @@ public:
    *
    * Safe to call from the audio callback (ISR context).
    *
-   * @param key  Key index 0–15.
+   * @param key  Key index 0–24.
    * @return     true on the first call after a confirmed release;
    *             false otherwise, or if key >= NUM_KEYS.
    *
@@ -289,12 +296,12 @@ public:
    *
    * Safe to call from the audio callback (ISR context).
    *
-   * @param key  Key index 0–15.
+   * @param key  Key index 0–24.
    * @return     true if the key is currently held.
    *
    * Example:
-   *   // Gate output only while key 3 (row 0, col 3) is held:
-   *   float gate = pad.isHeld(3) ? 1.0f : 0.0f;
+   *   // Gate output only while key 4 (row 0, col 4) is held:
+   *   float gate = pad.isHeld(4) ? 1.0f : 0.0f;
    *   float out  = osc.process() * env.process() * gate;
    */
   bool isHeld(uint8_t key) const {
@@ -304,8 +311,8 @@ public:
   }
 
 private:
-  uint8_t row_pins_[ROWS]; // GPIO pin numbers for the 4 row wires
-  uint8_t col_pins_[COLS]; // GPIO pin numbers for the 4 column wires
+  uint8_t row_pins_[ROWS]; // GPIO pin numbers for the 5 row wires
+  uint8_t col_pins_[COLS]; // GPIO pin numbers for the 5 column wires
   uint32_t debounce_ms_;   // Debounce window in milliseconds
 
   // Raw (un-debounced) reading from the most recent scan pass.

@@ -463,7 +463,7 @@
 &nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">analog_input.h</span> <span class="desc">&#x2500;&#x2500; Smoothed ADC reader for sensors</span><br>
 &nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">switch_input.h</span> <span class="desc">&#x2500;&#x2500; Debounced switch with trigger/hold/release</span><br>
 &nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">mpr121_input.h</span> <span class="desc">&#x2500;&#x2500; MPR121 capacitive touch — 12-electrode driver</span><br>
-&nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">matrix_keypad.h</span> <span class="desc">&#x2500;&#x2500; 4×4 diode matrix keypad — debounced, N-key rollover</span><br>
+&nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">matrix_keypad.h</span> <span class="desc">&#x2500;&#x2500; 5×5 diode matrix keypad — debounced, N-key rollover</span><br>
 &nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">led.h</span> <span class="desc">&#x2500;&#x2500; Onboard user LED driver (PC13, non-blocking blink)</span><br>
 &nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">audio_engine.h</span> <span class="desc">&#x2500;&#x2500; I2S DMA engine (interface)</span><br>
 &nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">audio_engine.cpp</span> <span class="desc">&#x2500;&#x2500; I2S DMA engine (implementation)</span><br>
@@ -2013,13 +2013,13 @@ filter.<span class="func">setFrequency</span>(cutoff);</code></pre>
 <div class="module-card">
   <h4>Class: MatrixKeypad</h4>
   <p>
-    Debounced driver for a 4&times;4 diode matrix keypad. Uses 8 GPIO
-    pins (4 rows + 4 columns) to read 16 momentary switches with
+    Debounced driver for a 5&times;5 diode matrix keypad. Uses 10 GPIO
+    pins (5 rows + 5 columns) to read 25 momentary switches with
     N-key rollover — multiple keys can be pressed simultaneously
     without phantom "ghost" detections. Provides the same
     <code>triggered()</code> / <code>released()</code> /
     <code>isHeld()</code> interface as <code>SwitchInput</code>,
-    addressed by flat key index (0&ndash;15).
+    addressed by flat key index (0&ndash;24).
   </p>
   <p>
     Call <code>begin()</code> in <code>setup()</code>,
@@ -2029,7 +2029,7 @@ filter.<span class="func">setFrequency</span>(cutoff);</code></pre>
 
   <h4>How Matrix Scanning Works</h4>
   <p>
-    Instead of one GPIO per switch (which would need 16 pins), the
+    Instead of one GPIO per switch (which would need 25 pins), the
     keys share row and column wires. The driver cycles through each
     row in turn: it drives that row LOW, then reads every column pin.
     A column reads LOW when the switch at (active row, that column) is
@@ -2055,8 +2055,8 @@ filter.<span class="func">setFrequency</span>(cutoff);</code></pre>
 
   <h4>Key Numbering</h4>
   <p style="font-family:monospace; margin-bottom:0.25rem;">
-    <strong>key&nbsp;=&nbsp;row&nbsp;&times;&nbsp;4&nbsp;+&nbsp;col</strong>
-    &nbsp;&nbsp;(0&ndash;15)
+    <strong>key&nbsp;=&nbsp;row&nbsp;&times;&nbsp;5&nbsp;+&nbsp;col</strong>
+    &nbsp;&nbsp;(0&ndash;24)
   </p>
   <table style="border-collapse:collapse; font-family:monospace;
                 font-size:0.9rem; margin:0.5rem 0 1rem 0;">
@@ -2071,6 +2071,8 @@ filter.<span class="func">setFrequency</span>(cutoff);</code></pre>
                  background:var(--bg3); color:var(--text);">Col 2</th>
       <th style="border:1px solid var(--border); padding:0.4rem 0.8rem;
                  background:var(--bg3); color:var(--text);">Col 3</th>
+      <th style="border:1px solid var(--border); padding:0.4rem 0.8rem;
+                 background:var(--bg3); color:var(--text);">Col 4</th>
     </tr>
     <tr>
       <td style="border:1px solid var(--border); padding:0.4rem 0.8rem;
@@ -2083,42 +2085,64 @@ filter.<span class="func">setFrequency</span>(cutoff);</code></pre>
                  color:var(--green);">2</td>
       <td style="border:1px solid var(--border); padding:0.4rem 0.8rem;
                  color:var(--green);">3</td>
+      <td style="border:1px solid var(--border); padding:0.4rem 0.8rem;
+                 color:var(--green);">4</td>
     </tr>
     <tr>
       <td style="border:1px solid var(--border); padding:0.4rem 0.8rem;
                  background:var(--bg3); color:var(--text-dim);">Row 1</td>
-      <td style="border:1px solid var(--border); padding:0.4rem 0.8rem;
-                 color:var(--green);">4</td>
       <td style="border:1px solid var(--border); padding:0.4rem 0.8rem;
                  color:var(--green);">5</td>
       <td style="border:1px solid var(--border); padding:0.4rem 0.8rem;
                  color:var(--green);">6</td>
       <td style="border:1px solid var(--border); padding:0.4rem 0.8rem;
                  color:var(--green);">7</td>
+      <td style="border:1px solid var(--border); padding:0.4rem 0.8rem;
+                 color:var(--green);">8</td>
+      <td style="border:1px solid var(--border); padding:0.4rem 0.8rem;
+                 color:var(--green);">9</td>
     </tr>
     <tr>
       <td style="border:1px solid var(--border); padding:0.4rem 0.8rem;
                  background:var(--bg3); color:var(--text-dim);">Row 2</td>
       <td style="border:1px solid var(--border); padding:0.4rem 0.8rem;
-                 color:var(--green);">8</td>
-      <td style="border:1px solid var(--border); padding:0.4rem 0.8rem;
-                 color:var(--green);">9</td>
-      <td style="border:1px solid var(--border); padding:0.4rem 0.8rem;
                  color:var(--green);">10</td>
       <td style="border:1px solid var(--border); padding:0.4rem 0.8rem;
                  color:var(--green);">11</td>
-    </tr>
-    <tr>
-      <td style="border:1px solid var(--border); padding:0.4rem 0.8rem;
-                 background:var(--bg3); color:var(--text-dim);">Row 3</td>
       <td style="border:1px solid var(--border); padding:0.4rem 0.8rem;
                  color:var(--green);">12</td>
       <td style="border:1px solid var(--border); padding:0.4rem 0.8rem;
                  color:var(--green);">13</td>
       <td style="border:1px solid var(--border); padding:0.4rem 0.8rem;
                  color:var(--green);">14</td>
+    </tr>
+    <tr>
+      <td style="border:1px solid var(--border); padding:0.4rem 0.8rem;
+                 background:var(--bg3); color:var(--text-dim);">Row 3</td>
       <td style="border:1px solid var(--border); padding:0.4rem 0.8rem;
                  color:var(--green);">15</td>
+      <td style="border:1px solid var(--border); padding:0.4rem 0.8rem;
+                 color:var(--green);">16</td>
+      <td style="border:1px solid var(--border); padding:0.4rem 0.8rem;
+                 color:var(--green);">17</td>
+      <td style="border:1px solid var(--border); padding:0.4rem 0.8rem;
+                 color:var(--green);">18</td>
+      <td style="border:1px solid var(--border); padding:0.4rem 0.8rem;
+                 color:var(--green);">19</td>
+    </tr>
+    <tr>
+      <td style="border:1px solid var(--border); padding:0.4rem 0.8rem;
+                 background:var(--bg3); color:var(--text-dim);">Row 4</td>
+      <td style="border:1px solid var(--border); padding:0.4rem 0.8rem;
+                 color:var(--green);">20</td>
+      <td style="border:1px solid var(--border); padding:0.4rem 0.8rem;
+                 color:var(--green);">21</td>
+      <td style="border:1px solid var(--border); padding:0.4rem 0.8rem;
+                 color:var(--green);">22</td>
+      <td style="border:1px solid var(--border); padding:0.4rem 0.8rem;
+                 color:var(--green);">23</td>
+      <td style="border:1px solid var(--border); padding:0.4rem 0.8rem;
+                 color:var(--green);">24</td>
     </tr>
   </table>
 
@@ -2127,39 +2151,45 @@ filter.<span class="func">setFrequency</span>(cutoff);</code></pre>
               border: 1px solid var(--border); border-radius: 6px;
               padding: 1rem; margin: 1rem 0; font-size: 0.9rem;
               line-height: 2.2;">
-    <span style="color:var(--text-dim);">Row 0 pin</span>
+    <span style="color:var(--text-dim);">PA3  Row 0</span>
     <span style="color:var(--text);">  ─── OUTPUT (HIGH normally, LOW when scanning row 0)</span><br>
-    <span style="color:var(--text-dim);">Row 1 pin</span>
+    <span style="color:var(--text-dim);">PA4  Row 1</span>
     <span style="color:var(--text);">  ─── OUTPUT (HIGH normally, LOW when scanning row 1)</span><br>
-    <span style="color:var(--text-dim);">Row 2 pin</span>
+    <span style="color:var(--text-dim);">PA5  Row 2</span>
     <span style="color:var(--text);">  ─── OUTPUT (HIGH normally, LOW when scanning row 2)</span><br>
-    <span style="color:var(--text-dim);">Row 3 pin</span>
+    <span style="color:var(--text-dim);">PA6  Row 3</span>
     <span style="color:var(--text);">  ─── OUTPUT (HIGH normally, LOW when scanning row 3)</span><br>
-    <span style="color:var(--text-dim);">Col 0 pin</span>
+    <span style="color:var(--text-dim);">PA7  Row 4</span>
+    <span style="color:var(--text);">  ─── OUTPUT (HIGH normally, LOW when scanning row 4)</span><br>
+    <span style="color:var(--text-dim);">PB0  Col 0</span>
     <span style="color:var(--text);">  ─── INPUT_PULLUP</span><br>
-    <span style="color:var(--text-dim);">Col 1 pin</span>
+    <span style="color:var(--text-dim);">PB1  Col 1</span>
     <span style="color:var(--text);">  ─── INPUT_PULLUP</span><br>
-    <span style="color:var(--text-dim);">Col 2 pin</span>
+    <span style="color:var(--text-dim);">PB4  Col 2</span>
     <span style="color:var(--text);">  ─── INPUT_PULLUP</span><br>
-    <span style="color:var(--text-dim);">Col 3 pin</span>
+    <span style="color:var(--text-dim);">PB5  Col 3</span>
+    <span style="color:var(--text);">  ─── INPUT_PULLUP</span><br>
+    <span style="color:var(--text-dim);">PB14 Col 4</span>
     <span style="color:var(--text);">  ─── INPUT_PULLUP</span><br>
     <span style="color:var(--text-dim); font-size:0.8rem;">
+      &nbsp;&nbsp;I2C1 (PB6/PB7 or PB8/PB9), I2C2 (PB10/PB3), and I2C3 (PA8)
+      are deliberately avoided so an I2C peripheral can coexist.<br>
       &nbsp;&nbsp;Diode orientation: cathode → row wire, anode → switch.
       One diode per key. No external resistors needed.
     </span>
   </div>
 
   <h4>Instantiation</h4>
-  <pre><code><span class="keyword">const</span> <span class="type">uint8_t</span> rows[<span class="number">4</span>] = {PA0, PA1, PA2, PA3};
-<span class="keyword">const</span> <span class="type">uint8_t</span> cols[<span class="number">4</span>] = {PA4, PA5, PA6, PA7};
+  <pre><code><span class="keyword">const</span> <span class="type">uint8_t</span> rows[<span class="number">5</span>] = {PA3, PA4, PA5, PA6, PA7};
+<span class="keyword">const</span> <span class="type">uint8_t</span> cols[<span class="number">5</span>] = {PB0, PB1, PB4, PB5, PB14};
 <span class="type">MatrixKeypad</span> pad(rows, cols);          <span class="comment">// default 20ms debounce</span>
 <span class="type">MatrixKeypad</span> pad(rows, cols, <span class="number">30</span>);      <span class="comment">// 30ms for soft membrane keys</span></code></pre>
 
   <h4>Constructor</h4>
   <div class="method-block">
-    <div class="method-sig">MatrixKeypad(const uint8_t row_pins[4], const uint8_t col_pins[4], uint32_t debounce_ms = 20)</div>
-    <div class="method-param"><code>row_pins</code> &mdash; <code>uint8_t[4]</code> &mdash; GPIO pin numbers for the 4 row wires</div>
-    <div class="method-param"><code>col_pins</code> &mdash; <code>uint8_t[4]</code> &mdash; GPIO pin numbers for the 4 column wires</div>
+    <div class="method-sig">MatrixKeypad(const uint8_t row_pins[5], const uint8_t col_pins[5], uint32_t debounce_ms = 20)</div>
+    <div class="method-param"><code>row_pins</code> &mdash; <code>uint8_t[5]</code> &mdash; GPIO pin numbers for the 5 row wires</div>
+    <div class="method-param"><code>col_pins</code> &mdash; <code>uint8_t[5]</code> &mdash; GPIO pin numbers for the 5 column wires</div>
     <div class="method-param"><code>debounce_ms</code> &mdash; <code>uint32_t</code> &mdash; debounce window in ms (default 20). Increase to 50 for noisy contacts.</div>
   </div>
 
@@ -2173,7 +2203,7 @@ filter.<span class="func">setFrequency</span>(cutoff);</code></pre>
   <div class="method-block">
     <div class="method-sig">void update()</div>
     <div class="method-desc">
-      Scans all 16 keys and updates debounced states. Call from <code>loop()</code> at ~100&nbsp;Hz (10&nbsp;ms intervals).
+      Scans all 25 keys and updates debounced states. Call from <code>loop()</code> at ~100&nbsp;Hz (10&nbsp;ms intervals).
       Drives each row LOW in turn (with a 10&nbsp;&micro;s settle delay), reads the column pins, then restores the row HIGH.
       Do <strong>not</strong> call from the audio callback.
     </div>
@@ -2182,21 +2212,21 @@ filter.<span class="func">setFrequency</span>(cutoff);</code></pre>
   <div class="method-block">
     <div class="method-sig">bool triggered(uint8_t key)</div>
     <div class="method-desc">Returns <code>true</code> once per confirmed key press, then clears. Safe to call from the audio callback.</div>
-    <div class="method-param"><code>key</code> &mdash; key index 0&ndash;15 (row&nbsp;&times;&nbsp;4&nbsp;+&nbsp;col)</div>
-    <div class="method-returns">Returns: true on first call after a press; false otherwise or if key &ge; 16</div>
+    <div class="method-param"><code>key</code> &mdash; key index 0&ndash;24 (row&nbsp;&times;&nbsp;5&nbsp;+&nbsp;col)</div>
+    <div class="method-returns">Returns: true on first call after a press; false otherwise or if key &ge; 25</div>
   </div>
 
   <div class="method-block">
     <div class="method-sig">bool released(uint8_t key)</div>
     <div class="method-desc">Returns <code>true</code> once per confirmed key release, then clears. Safe to call from the audio callback.</div>
-    <div class="method-param"><code>key</code> &mdash; key index 0&ndash;15</div>
-    <div class="method-returns">Returns: true on first call after a release; false otherwise or if key &ge; 16</div>
+    <div class="method-param"><code>key</code> &mdash; key index 0&ndash;24</div>
+    <div class="method-returns">Returns: true on first call after a release; false otherwise or if key &ge; 25</div>
   </div>
 
   <div class="method-block">
     <div class="method-sig">bool isHeld(uint8_t key) const</div>
     <div class="method-desc">Returns the current debounced state of a key. Safe to call from the audio callback.</div>
-    <div class="method-param"><code>key</code> &mdash; key index 0&ndash;15</div>
+    <div class="method-param"><code>key</code> &mdash; key index 0&ndash;24</div>
     <div class="method-returns">Returns: true if the key is currently held down</div>
   </div>
 
@@ -2207,24 +2237,25 @@ filter.<span class="func">setFrequency</span>(cutoff);</code></pre>
 <span class="keyword">#include</span> <span class="string">"midi_utils.h"</span>
 <span class="keyword">#include</span> <span class="string">"audio_engine.h"</span>
 
-<span class="keyword">const</span> <span class="type">uint8_t</span> rows[<span class="number">4</span>] = {PA0, PA1, PA2, PA3};
-<span class="keyword">const</span> <span class="type">uint8_t</span> cols[<span class="number">4</span>] = {PA4, PA5, PA6, PA7};
+<span class="keyword">const</span> <span class="type">uint8_t</span> rows[<span class="number">5</span>] = {PA3, PA4, PA5, PA6, PA7};
+<span class="keyword">const</span> <span class="type">uint8_t</span> cols[<span class="number">5</span>] = {PB0, PB1, PB4, PB5, PB14};
 <span class="type">MatrixKeypad</span> pad(rows, cols);
 
 <span class="type">Oscillator</span> osc;
 <span class="type">Envelope</span>   env;
 
-<span class="comment">// One MIDI note per key — chromatic from C4</span>
-<span class="keyword">const</span> <span class="type">uint8_t</span> notes[<span class="number">16</span>] = {
-    <span class="number">60</span>,<span class="number">61</span>,<span class="number">62</span>,<span class="number">63</span>,  <span class="comment">// row 0: C4 C#4 D4 D#4</span>
-    <span class="number">64</span>,<span class="number">65</span>,<span class="number">66</span>,<span class="number">67</span>,  <span class="comment">// row 1: E4 F4  F#4 G4</span>
-    <span class="number">68</span>,<span class="number">69</span>,<span class="number">70</span>,<span class="number">71</span>,  <span class="comment">// row 2: G#4 A4 A#4 B4</span>
-    <span class="number">72</span>,<span class="number">73</span>,<span class="number">74</span>,<span class="number">75</span>   <span class="comment">// row 3: C5 C#5 D5  D#5</span>
+<span class="comment">// One MIDI note per key — chromatic from C4 (two octaves + one note)</span>
+<span class="keyword">const</span> <span class="type">uint8_t</span> notes[<span class="number">25</span>] = {
+    <span class="number">60</span>,<span class="number">61</span>,<span class="number">62</span>,<span class="number">63</span>,<span class="number">64</span>,  <span class="comment">// row 0: C4  C#4 D4  D#4 E4</span>
+    <span class="number">65</span>,<span class="number">66</span>,<span class="number">67</span>,<span class="number">68</span>,<span class="number">69</span>,  <span class="comment">// row 1: F4  F#4 G4  G#4 A4</span>
+    <span class="number">70</span>,<span class="number">71</span>,<span class="number">72</span>,<span class="number">73</span>,<span class="number">74</span>,  <span class="comment">// row 2: A#4 B4  C5  C#5 D5</span>
+    <span class="number">75</span>,<span class="number">76</span>,<span class="number">77</span>,<span class="number">78</span>,<span class="number">79</span>,  <span class="comment">// row 3: D#5 E5  F5  F#5 G5</span>
+    <span class="number">80</span>,<span class="number">81</span>,<span class="number">82</span>,<span class="number">83</span>,<span class="number">84</span>   <span class="comment">// row 4: G#5 A5  A#5 B5  C6</span>
 };
 
 <span class="type">void</span> <span class="func">audioCallback</span>(<span class="type">int16_t</span>* buf, <span class="type">uint16_t</span> len) {
     <span class="keyword">for</span> (<span class="type">uint16_t</span> i = <span class="number">0</span>; i &lt; len; i += <span class="number">2</span>) {
-        <span class="keyword">for</span> (<span class="type">uint8_t</span> k = <span class="number">0</span>; k &lt; <span class="number">16</span>; k++) {
+        <span class="keyword">for</span> (<span class="type">uint8_t</span> k = <span class="number">0</span>; k &lt; <span class="number">25</span>; k++) {
             <span class="keyword">if</span> (pad.<span class="func">triggered</span>(k)) {
                 osc.<span class="func">setFrequency</span>(MidiUtils::<span class="func">noteToFreq</span>(notes[k]));
                 env.<span class="func">trigger</span>();
