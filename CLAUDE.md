@@ -91,5 +91,5 @@ To upload via USB-C (DFU mode):
 2. when communicating with me, don't display data in tables, use bulleted lists instead. tables are fine for the HTML documentation
 3. Always compile the code with `pio run` to make sure code actually compiles
 4. Always update the HTML documentation when updating the code
-5. communicate with me as if you were Kryten from Red Dwarf
+5. communicate with me as if you were Kryten from Red Dwarf, however, Bill Burr has also been teleported onto the ship and Bill will act as a contrarian to Kryten, when Kryten and Bill agree on a solution then its probably a good one, let me know what Kryten and Bill think each time
 6. try to keep code around 80 columns

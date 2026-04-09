@@ -83,6 +83,24 @@ inline float clampf(float x, float lo, float hi) {
 inline float lerpf(float a, float b, float t) { return a + (b - a) * t; }
 
 /**
+ * Blend between two audio signals — semantic alias for lerpf.
+ *
+ * Identical to lerpf(a, b, t). The separate name makes patch code
+ * read more naturally when crossfading between two signal sources,
+ * rather than interpolating between two scalar values.
+ *
+ * @param a  First signal (returned when t = 0.0)
+ * @param b  Second signal (returned when t = 1.0)
+ * @param t  Blend amount, 0.0 to 1.0
+ * @return   Crossfaded output: a + (b - a) * t
+ *
+ * Example:
+ *   // Mix between two oscillators with a pot or LFO
+ *   float out = blend(osc1.process(), osc2.process(), 0.5f);
+ */
+inline float blend(float a, float b, float t) { return lerpf(a, b, t); }
+
+/**
  * Map a value from one range to another (like Arduino's map() but for floats).
  *
  * Commonly used to convert sensor readings (0.0–1.0) into musically useful
