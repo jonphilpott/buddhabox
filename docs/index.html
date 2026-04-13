@@ -467,6 +467,11 @@
 &nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">led.h</span> <span class="desc">&#x2500;&#x2500; Onboard user LED driver (PC13, non-blocking blink)</span><br>
 &nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">audio_engine.h</span> <span class="desc">&#x2500;&#x2500; I2S DMA engine (interface)</span><br>
 &nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">audio_engine.cpp</span> <span class="desc">&#x2500;&#x2500; I2S DMA engine (implementation)</span><br>
+&nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">wave_folder.h</span> <span class="desc">&#x2500;&#x2500; Single-stage wave folder (west-coast/Buchla-style)</span><br>
+&nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">low_pass_gate.h</span> <span class="desc">&#x2500;&#x2500; Low Pass Gate — combined VCA and lowpass filter</span><br>
+&nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">slew.h</span> <span class="desc">&#x2500;&#x2500; Slew limiter with independent rise and fall times</span><br>
+&nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">sample_and_hold.h</span> <span class="desc">&#x2500;&#x2500; Sample &amp; Hold — captures input on trigger</span><br>
+&nbsp;&nbsp;&nbsp; &#x251C;&#x2500;&#x2500; <span class="file">allpass.h</span> <span class="desc">&#x2500;&#x2500; Schroeder allpass filter for phase diffusion</span><br>
 &nbsp;&nbsp;&nbsp; &#x2514;&#x2500;&#x2500; <span class="file">main.cpp</span> <span class="desc">&#x2500;&#x2500; Example patch (filtered pink noise drone)</span>
 </div>
 
@@ -534,6 +539,15 @@
   <div class="method-returns">Returns: <code>float</code> &mdash; approximate sin(x) in approximately [-1.0, +1.0]</div>
 </div>
 
+<div class="method-block">
+  <div class="method-sig">float blend(float a, float b, float t)</div>
+  <div class="method-desc">Crossfade between two audio signals. Semantic alias for <code>lerpf</code> — identical in behaviour, but reads more naturally in patch code where you are mixing signal sources rather than interpolating scalar values.</div>
+  <div class="method-param"><code>a</code> &mdash; first signal (returned when t = 0.0)</div>
+  <div class="method-param"><code>b</code> &mdash; second signal (returned when t = 1.0)</div>
+  <div class="method-param"><code>t</code> &mdash; blend amount, 0.0 to 1.0</div>
+  <div class="method-returns">Returns: a + (b - a) * t</div>
+</div>
+
 <pre><code><span class="comment">// Gentle warmth on a mix</span>
 <span class="type">float</span> out = <span class="func">softclip</span>(osc.<span class="func">process</span>() + noise.<span class="func">process</span>(), <span class="number">2.0f</span>);
 
@@ -541,7 +555,10 @@
 <span class="type">float</span> distorted = <span class="func">softclip</span>(osc.<span class="func">process</span>(), <span class="number">8.0f</span>);
 
 <span class="comment">// Map sensor to filter cutoff</span>
-<span class="type">float</span> cutoff = <span class="func">mapf</span>(sensor.<span class="func">read</span>(), <span class="number">0.0f</span>, <span class="number">1.0f</span>, <span class="number">200.0f</span>, <span class="number">5000.0f</span>);</code></pre>
+<span class="type">float</span> cutoff = <span class="func">mapf</span>(sensor.<span class="func">read</span>(), <span class="number">0.0f</span>, <span class="number">1.0f</span>, <span class="number">200.0f</span>, <span class="number">5000.0f</span>);
+
+<span class="comment">// Crossfade between two oscillators</span>
+<span class="type">float</span> mixed = <span class="func">blend</span>(osc1.<span class="func">process</span>(), osc2.<span class="func">process</span>(), <span class="number">0.5f</span>);</code></pre>
 
 <!-- ── Oscillator ────────────────────────────────────────────────────────── -->
 <h3>Oscillator <code>oscillator.h</code></h3>
@@ -2409,6 +2426,328 @@ filter.<span class="func">setFrequency</span>(cutoff);</code></pre>
 
 <div class="note">
   <strong>ISR Rules:</strong> audioCallback runs in interrupt context. No Serial.print(), no analogRead(), no malloc/new. Keep computations minimal and predictable.
+</div>
+
+<!-- ── WaveFolder ──────────────────────────────────────────────────────────── -->
+<h3>WaveFolder <code>wave_folder.h</code></h3>
+
+<div class="module-card">
+  <h4>Class: WaveFolder</h4>
+  <p>
+    Single-stage wave folder for west-coast/Buchla-style synthesis. When the
+    input signal crosses &plusmn;threshold, the excess is reflected back in the
+    opposite direction, adding complex harmonics. This is a single fold stage
+    equivalent to one op-amp fold circuit in the original Buchla hardware.
+    Stack multiple instances in series for richer, more complex waveforms.
+  </p>
+
+  <div class="tip"><strong>West-coast tip:</strong> Drive the signal hard into the folder
+  (multiply by 2&ndash;4&times; before passing in) or lower the threshold
+  so that a normal-level signal folds. A full-scale sine with a 0.8 threshold
+  barely folds; the same sine at 3&times; amplitude with a 0.4 threshold
+  produces rich, metallic harmonics.</div>
+
+  <h4>Instantiation</h4>
+  <pre><code><span class="type">WaveFolder</span> folder;  <span class="comment">// Default threshold 0.8</span></code></pre>
+
+  <h4>Methods</h4>
+
+  <div class="method-block">
+    <div class="method-sig">void setThreshold(float t)</div>
+    <div class="method-desc">Set the folding threshold. Signals beyond &plusmn;t are reflected back.</div>
+    <div class="method-param"><code>t</code> &mdash; <code>float</code> &mdash; threshold level, 0.001 to 1.0. Lower = folds more aggressively.</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">float process(float input)</div>
+    <div class="method-desc">Process one sample. Values within &plusmn;threshold pass unchanged; values outside are reflected.</div>
+    <div class="method-param"><code>input</code> &mdash; <code>float</code> &mdash; audio sample to fold. Any level is safe.</div>
+    <div class="method-returns">Returns: <code>float</code> &mdash; folded sample.</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">float getThreshold() const</div>
+    <div class="method-returns">Returns: <code>float</code> &mdash; current threshold value.</div>
+  </div>
+
+  <pre><code><span class="type">WaveFolder</span> fold1, fold2;
+fold1.<span class="func">setThreshold</span>(<span class="number">0.8f</span>);
+fold2.<span class="func">setThreshold</span>(<span class="number">0.5f</span>);
+
+<span class="comment">// Single stage — drive signal to 2x</span>
+<span class="type">float</span> out = fold1.<span class="func">process</span>(osc.<span class="func">process</span>() * <span class="number">2.0f</span>);
+
+<span class="comment">// Two stages in series for richer harmonics</span>
+<span class="type">float</span> sig = osc.<span class="func">process</span>() * <span class="number">3.0f</span>;
+sig = fold2.<span class="func">process</span>(fold1.<span class="func">process</span>(sig));
+
+<span class="comment">// LFO-modulated threshold for animated timbre</span>
+<span class="type">float</span> thresh = <span class="func">mapf</span>(lfo.<span class="func">process</span>(), <span class="number">-1.0f</span>, <span class="number">1.0f</span>, <span class="number">0.2f</span>, <span class="number">0.9f</span>);
+folder.<span class="func">setThreshold</span>(thresh);
+<span class="type">float</span> folded = folder.<span class="func">process</span>(osc.<span class="func">process</span>() * <span class="number">2.5f</span>);</code></pre>
+</div>
+
+<!-- ── LowPassGate ──────────────────────────────────────────────────────────── -->
+<h3>LowPassGate <code>low_pass_gate.h</code></h3>
+
+<div class="module-card">
+  <h4>Class: LowPassGate</h4>
+  <p>
+    Combined VCA and lowpass filter driven by a single control voltage &mdash;
+    a digital model of Don Buchla&rsquo;s iconic Low Pass Gate. As the gate opens,
+    volume and brightness rise together; as it closes, they fall together.
+    This produces the characteristic woody, percussive, organic quality of
+    west-coast synthesis that a plain VCA or plain filter alone cannot achieve.
+  </p>
+  <p>
+    A one-pole (6 dB/oct) lowpass is used internally, matching the gentle rolloff
+    of the original vactrol-based circuit. The vactrol&rsquo;s physical lag is modelled
+    with a one-pole slew smoother on the control signal, configurable with
+    independent rise and fall times.
+  </p>
+
+  <h4>Instantiation</h4>
+  <pre><code><span class="type">LowPassGate</span> lpg;  <span class="comment">// Default: 10 ms symmetric slew</span></code></pre>
+
+  <h4>Methods</h4>
+
+  <div class="method-block">
+    <div class="method-sig">void setControl(float c)</div>
+    <div class="method-desc">Set the gate control level. Feed from an envelope, LFO, or any 0&ndash;1 CV. The gate slews toward this value rather than jumping instantly.</div>
+    <div class="method-param"><code>c</code> &mdash; <code>float</code> &mdash; 0.0 (fully closed, silence and dark) to 1.0 (fully open, loud and bright).</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">void setSlewTime(float seconds)</div>
+    <div class="method-desc">Set symmetric rise and fall slew time (vactrol lag simulation).</div>
+    <div class="method-param"><code>seconds</code> &mdash; <code>float</code> &mdash; slew time constant. 0.01&ndash;0.05 for typical vactrol feel; 0.1+ for very slow, blob-like response.</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">void setSlewRise(float seconds) &nbsp;/&nbsp; void setSlewFall(float seconds)</div>
+    <div class="method-desc">Set independent rise and fall slew times. Real vactrols typically open faster than they close.</div>
+    <div class="method-param"><code>seconds</code> &mdash; <code>float</code> &mdash; time constant for that direction.</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">float process(float input)</div>
+    <div class="method-desc">Process one audio sample through the gate. Updates vactrol slew, applies VCA gain, and runs the one-pole lowpass.</div>
+    <div class="method-param"><code>input</code> &mdash; <code>float</code> &mdash; audio sample, typically &minus;1.0 to +1.0.</div>
+    <div class="method-returns">Returns: <code>float</code> &mdash; gated and filtered sample.</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">void clear()</div>
+    <div class="method-desc">Reset all internal state to zero. Use when switching patches.</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">float getControl() const</div>
+    <div class="method-returns">Returns: <code>float</code> &mdash; current smoothed control value (0.0&ndash;1.0).</div>
+  </div>
+
+  <pre><code><span class="type">LowPassGate</span> lpg;
+<span class="type">Envelope</span> env;
+env.<span class="func">setAttack</span>(<span class="number">0.005f</span>);
+env.<span class="func">setRelease</span>(<span class="number">0.3f</span>);
+
+<span class="comment">// Authentic vactrol feel: fast open, slow close</span>
+lpg.<span class="func">setSlewRise</span>(<span class="number">0.005f</span>);
+lpg.<span class="func">setSlewFall</span>(<span class="number">0.04f</span>);
+
+<span class="comment">// In audio callback:</span>
+<span class="keyword">if</span> (clock.<span class="func">process</span>()) { env.<span class="func">gate</span>(<span class="keyword">true</span>); env.<span class="func">gate</span>(<span class="keyword">false</span>); }
+lpg.<span class="func">setControl</span>(env.<span class="func">process</span>());
+<span class="type">float</span> out = lpg.<span class="func">process</span>(osc.<span class="func">process</span>());</code></pre>
+</div>
+
+<!-- ── SlewLimiter ──────────────────────────────────────────────────────────── -->
+<h3>SlewLimiter <code>slew.h</code></h3>
+
+<div class="module-card">
+  <h4>Class: SlewLimiter</h4>
+  <p>
+    A one-pole lowpass applied to control signals rather than audio. Limits
+    how fast a value can change &mdash; smoothing abrupt jumps into gradual
+    transitions. Used in west-coast patches for portamento (pitch glide),
+    sensor smoothing, and turning gate signals into simple AR envelopes.
+    Rise and fall times can be set independently.
+  </p>
+
+  <h4>Instantiation</h4>
+  <pre><code><span class="type">SlewLimiter</span> slew;  <span class="comment">// Default: 10 ms symmetric slew</span></code></pre>
+
+  <h4>Methods</h4>
+
+  <div class="method-block">
+    <div class="method-sig">void setTime(float seconds)</div>
+    <div class="method-desc">Set symmetric rise and fall slew time.</div>
+    <div class="method-param"><code>seconds</code> &mdash; <code>float</code> &mdash; time constant (to ~63% of target). Perceptually complete settling ≈ 5&times; this value.</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">void setSlewRise(float seconds) &nbsp;/&nbsp; void setSlewFall(float seconds)</div>
+    <div class="method-desc">Set independent rise and fall times for asymmetric response.</div>
+    <div class="method-param"><code>seconds</code> &mdash; <code>float</code> &mdash; time constant for that direction.</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">float process(float input)</div>
+    <div class="method-desc">Move the output toward input at the configured rate. Call once per sample (or per control-rate block).</div>
+    <div class="method-param"><code>input</code> &mdash; <code>float</code> &mdash; target value to slew toward. Any range.</div>
+    <div class="method-returns">Returns: <code>float</code> &mdash; slewed output.</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">void reset(float v = 0.0f)</div>
+    <div class="method-desc">Instantly set output to v without slewing. Use to pre-load the first note and avoid a startup glide from zero.</div>
+    <div class="method-param"><code>v</code> &mdash; <code>float</code> &mdash; value to pre-load. Default: 0.0.</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">float getValue() const</div>
+    <div class="method-returns">Returns: <code>float</code> &mdash; current slewed output value.</div>
+  </div>
+
+  <pre><code><span class="comment">// Portamento: smooth pitch glide between notes</span>
+<span class="type">SlewLimiter</span> slew;
+slew.<span class="func">setTime</span>(<span class="number">0.05f</span>);  <span class="comment">// 50 ms glide</span>
+slew.<span class="func">reset</span>(<span class="func">midiToFreq</span>(<span class="number">60</span>));  <span class="comment">// Pre-load first note</span>
+
+<span class="comment">// In audio callback:</span>
+<span class="type">float</span> freq = slew.<span class="func">process</span>(targetFreq);
+osc.<span class="func">setFrequency</span>(freq);
+
+<span class="comment">// Gate-to-envelope: fast attack, slow release</span>
+<span class="type">SlewLimiter</span> env;
+env.<span class="func">setSlewRise</span>(<span class="number">0.002f</span>);
+env.<span class="func">setSlewFall</span>(<span class="number">0.2f</span>);
+<span class="type">float</span> gate = clock.<span class="func">process</span>() ? <span class="number">1.0f</span> : <span class="number">0.0f</span>;
+<span class="type">float</span> envCV = env.<span class="func">process</span>(gate);
+<span class="type">float</span> out = osc.<span class="func">process</span>() * envCV;</code></pre>
+</div>
+
+<!-- ── SampleAndHold ───────────────────────────────────────────────────────── -->
+<h3>SampleAndHold <code>sample_and_hold.h</code></h3>
+
+<div class="module-card">
+  <h4>Class: SampleAndHold</h4>
+  <p>
+    Captures and freezes an input value on a trigger pulse, holding it steady
+    until the next trigger. The classic west-coast patch is noise into S&amp;H,
+    clocked by a tempo source &mdash; each tick picks a random value, producing
+    stepped random CVs for pitch, filter cutoff, or any other parameter.
+  </p>
+
+  <h4>Instantiation</h4>
+  <pre><code><span class="type">SampleAndHold</span> sh;  <span class="comment">// Holds 0.0 until first trigger</span></code></pre>
+
+  <h4>Methods</h4>
+
+  <div class="method-block">
+    <div class="method-sig">float process(float input, bool trigger)</div>
+    <div class="method-desc">Inline form for use in audio callbacks. If trigger is true, captures input; always returns the held value.</div>
+    <div class="method-param"><code>input</code> &mdash; <code>float</code> &mdash; signal to potentially capture. Any range.</div>
+    <div class="method-param"><code>trigger</code> &mdash; <code>bool</code> &mdash; true = capture now. TempoClock::process() is a natural source.</div>
+    <div class="method-returns">Returns: <code>float</code> &mdash; currently held value.</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">void trigger(float input)</div>
+    <div class="method-desc">Manually capture a value. Use with getValue() when the signal to capture is computed separately.</div>
+    <div class="method-param"><code>input</code> &mdash; <code>float</code> &mdash; value to capture and hold.</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">float getValue() const</div>
+    <div class="method-returns">Returns: <code>float</code> &mdash; the currently held value.</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">void reset(float v = 0.0f)</div>
+    <div class="method-desc">Pre-load the held value without triggering.</div>
+    <div class="method-param"><code>v</code> &mdash; <code>float</code> &mdash; initial held value. Default: 0.0.</div>
+  </div>
+
+  <pre><code><span class="comment">// Classic west-coast: random stepped pitch from noise</span>
+<span class="type">WhiteNoise</span> noise;
+<span class="type">SampleAndHold</span> sh;
+<span class="type">TempoClock</span> clock(<span class="number">80.0f</span>, <span class="number">2</span>);  <span class="comment">// 80 BPM, eighth notes</span>
+
+<span class="comment">// In audio callback:</span>
+<span class="type">float</span> cv = sh.<span class="func">process</span>(noise.<span class="func">process</span>(), clock.<span class="func">process</span>());
+osc.<span class="func">setFrequency</span>(<span class="func">mapf</span>(cv, <span class="number">-1.0f</span>, <span class="number">1.0f</span>, <span class="number">200.0f</span>, <span class="number">800.0f</span>));
+
+<span class="comment">// With slew: smooth glides between random steps</span>
+<span class="type">SlewLimiter</span> slew;
+slew.<span class="func">setTime</span>(<span class="number">0.03f</span>);
+<span class="type">float</span> raw = sh.<span class="func">process</span>(noise.<span class="func">process</span>(), clock.<span class="func">process</span>());
+<span class="type">float</span> smoothed = slew.<span class="func">process</span>(raw);</code></pre>
+</div>
+
+<!-- ── AllpassFilter ───────────────────────────────────────────────────────── -->
+<h3>AllpassFilter&lt;N&gt; <code>allpass.h</code></h3>
+
+<div class="module-card">
+  <h4>Class: AllpassFilter&lt;MAX_SAMPLES&gt;</h4>
+  <p>
+    Schroeder allpass filter for phase dispersion and reverb diffusion.
+    Passes all frequencies at equal amplitude but smears their phase
+    relationships in time, creating the diffuse, spatial quality associated
+    with reverb. On its own it produces subtle comb-filtering echoes; two
+    or three instances in series give a convincing sense of acoustic space
+    without a full reverb algorithm.
+  </p>
+
+  <table>
+    <tr><th>Template size</th><th>Max delay</th><th>RAM cost</th></tr>
+    <tr><td><code>AllpassFilter&lt;1024&gt;</code></td><td>~23 ms</td><td>2 KB</td></tr>
+    <tr><td><code>AllpassFilter&lt;2048&gt;</code></td><td>~46 ms</td><td>4 KB</td></tr>
+    <tr><td><code>AllpassFilter&lt;4096&gt;</code></td><td>~93 ms</td><td>8 KB</td></tr>
+  </table>
+
+  <h4>Instantiation</h4>
+  <pre><code><span class="type">AllpassFilter</span>&lt;<span class="number">2048</span>&gt; ap;  <span class="comment">// 4 KB, max 46 ms delay</span></code></pre>
+
+  <h4>Methods</h4>
+
+  <div class="method-block">
+    <div class="method-sig">void setGain(float g)</div>
+    <div class="method-desc">Set the feedback/feedforward gain. Higher = more diffusion and longer perceived tail.</div>
+    <div class="method-param"><code>g</code> &mdash; <code>float</code> &mdash; 0.0 to 0.99. Typical reverb: 0.5&ndash;0.7. Clamped above 0.99 for stability.</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">void setDelay(float samples)</div>
+    <div class="method-desc">Set the delay length. Use different values for each filter in a chain to prevent comb artefacts. Fractional values interpolated.</div>
+    <div class="method-param"><code>samples</code> &mdash; <code>float</code> &mdash; delay in samples, 1.0 to MAX_SAMPLES&minus;1. At 44100 Hz: 441 samples ≈ 10 ms.</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">float process(float input)</div>
+    <div class="method-desc">Process one sample. Magnitude response is flat (allpass); only phase is altered.</div>
+    <div class="method-param"><code>input</code> &mdash; <code>float</code> &mdash; audio sample to diffuse.</div>
+    <div class="method-returns">Returns: <code>float</code> &mdash; diffused sample, same amplitude as input.</div>
+  </div>
+
+  <div class="method-block">
+    <div class="method-sig">void clear()</div>
+    <div class="method-desc">Zero the delay buffer. Use when switching patches to avoid stale audio.</div>
+  </div>
+
+  <pre><code><span class="comment">// Two allpass stages — room diffusion effect</span>
+<span class="type">AllpassFilter</span>&lt;<span class="number">2048</span>&gt; ap1, ap2;
+ap1.<span class="func">setDelay</span>(<span class="number">556.0f</span>);  ap1.<span class="func">setGain</span>(<span class="number">0.6f</span>);
+ap2.<span class="func">setDelay</span>(<span class="number">441.0f</span>);  ap2.<span class="func">setGain</span>(<span class="number">0.6f</span>);
+
+<span class="comment">// In audio callback:</span>
+<span class="type">float</span> dry = osc.<span class="func">process</span>();
+<span class="type">float</span> wet = ap2.<span class="func">process</span>(ap1.<span class="func">process</span>(dry));
+<span class="type">float</span> out = <span class="func">blend</span>(dry, wet, <span class="number">0.4f</span>);  <span class="comment">// 40% wet</span>
+
+<span class="comment">// LFO-modulated delay for chorus-like shimmer</span>
+<span class="type">float</span> modDelay = <span class="number">500.0f</span> + lfo.<span class="func">process</span>() * <span class="number">200.0f</span>;
+ap1.<span class="func">setDelay</span>(modDelay);</code></pre>
 </div>
 
 </section>
