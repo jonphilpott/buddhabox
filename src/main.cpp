@@ -33,7 +33,7 @@
 float output_scale = 32000.0f;
 
 // Master volume multiplier applied just before output conversion
-float gain = 0.5f;
+float gain = 1.0f;
 
 // Soft saturation threshold; signals above this get gently compressed
 float softclip_knee = 1.0f;
